@@ -4,13 +4,30 @@ const ctx = canvas.getContext('2d');
 // Cat properties
 let catY = canvas.height / 2;
 let catVY = 0; // velocity Y
-let gravity = 0.7;
-let jumpPower = -10;
+let gravity = 3;    // <-- Strong gravity for testing!
+let jumpPower = -30; // <-- Big jump for testing!
 let gameStarted = false;
 
-// Draw cat face
+// Draw cat face and some reference lines
 function drawCatFace() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw ground
+  ctx.strokeStyle = "#888";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height - 50);
+  ctx.lineTo(canvas.width, canvas.height - 50);
+  ctx.stroke();
+
+  // Draw ceiling
+  ctx.strokeStyle = "#bbb";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 50);
+  ctx.lineTo(canvas.width, 50);
+  ctx.stroke();
+
   // Cat face
   ctx.fillStyle = '#fff';
   ctx.beginPath();
@@ -27,6 +44,7 @@ function drawCatFace() {
   ctx.beginPath();
   ctx.ellipse(200, catY + 20, 10, 6, 0, 0, Math.PI * 2);
   ctx.fill();
+
   if (!gameStarted) {
     ctx.fillStyle = '#333';
     ctx.font = 'bold 32px Arial';
