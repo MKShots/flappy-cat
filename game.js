@@ -2,11 +2,15 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // Cat properties
+const catX = 90; // Move cat to the left
 let catY = canvas.height / 2;
 let catVY = 0;
 let gravity = 0.7;
 let jumpPower = -10;
 let gameStarted = false;
+
+const catRadiusX = 35; // Smaller width
+const catRadiusY = 30; // Smaller height
 
 // Obstacle properties
 const broomWidth = 60;
@@ -24,18 +28,18 @@ function drawCatFace() {
   // Cat face
   ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.ellipse(200, catY, 60, 50, 0, 0, Math.PI * 2);
+  ctx.ellipse(catX, catY, catRadiusX, catRadiusY, 0, 0, Math.PI * 2);
   ctx.fill();
   // Eyes
   ctx.fillStyle = '#333';
   ctx.beginPath();
-  ctx.arc(185, catY - 10, 7, 0, Math.PI * 2);
-  ctx.arc(215, catY - 10, 7, 0, Math.PI * 2);
+  ctx.arc(catX - 15, catY - 7, 6, 0, Math.PI * 2);
+  ctx.arc(catX + 15, catY - 7, 6, 0, Math.PI * 2);
   ctx.fill();
   // Nose
   ctx.fillStyle = '#f7c8b3';
   ctx.beginPath();
-  ctx.ellipse(200, catY + 20, 10, 6, 0, 0, Math.PI * 2);
+  ctx.ellipse(catX, catY + 12, 8, 5, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -70,19 +74,19 @@ function resetGame() {
 function checkCollision() {
   for (let broom of brooms) {
     if (
-      200 + 60 > broom.x && 200 - 60 < broom.x + broomWidth // Cat overlaps horizontally
+      catX + catRadiusX > broom.x && catX - catRadiusX < broom.x + broomWidth // Cat overlaps horizontally
     ) {
       // Check vertical collision (outside gap)
       if (
-        catY - 50 < broom.gapY - broomGap / 2 ||
-        catY + 50 > broom.gapY + broomGap / 2
+        catY - catRadiusY < broom.gapY - broomGap / 2 ||
+        catY + catRadiusY > broom.gapY + broomGap / 2
       ) {
         return true;
       }
     }
   }
   // Out of bounds
-  if (catY < 50 || catY > canvas.height - 50) {
+  if (catY < 50 + catRadiusY || catY > canvas.height - 50 - catRadiusY) {
     return true;
   }
   return false;
@@ -127,7 +131,7 @@ function update() {
 
     // Update score
     for (let broom of brooms) {
-      if (!broom.passed && broom.x + broomWidth < 200 - 60) {
+      if (!broom.passed && broom.x + broomWidth < catX - catRadiusX) {
         broom.passed = true;
         score++;
       }
