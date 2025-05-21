@@ -1,11 +1,9 @@
-// --- Flappy Cat: Responsive, Cute Cat, Fixed Aspect Ratio ---
-
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // --- CONFIG ---
-const ASPECT_W = 3, ASPECT_H = 4; // Classic vertical aspect ratio
-const BASE_W = 360, BASE_H = 480; // Reference resolution for scaling logic
+const ASPECT_W = 3, ASPECT_H = 4; // Portrait aspect ratio (e.g., 450x600)
+const BASE_W = 360, BASE_H = 480; // Reference resolution for scaling
 
 // These will be set in resizeCanvas()
 let width, height, scale;
@@ -34,37 +32,37 @@ function resizeCanvas() {
   canvas.height = height;
   scale = width / BASE_W;
 
-  // Game geometry
+  // Geometry for game and cat
   catX = Math.round(width * 0.22);
-  catRadius = Math.round(60 * scale);
-  earHeight = Math.round(38 * scale);
-  earWidth = Math.round(36 * scale);
+  catRadius = Math.round(38 * scale);    // SMALLER HEAD!
+  earHeight = Math.round(23 * scale);    // Shorter ears
+  earWidth = Math.round(23 * scale);     // Narrower ears, point more up
   catY = height / 2;
-  catHitboxY = catY;
-  catHitboxR = catRadius + earHeight * 0.7;
+  catHitboxY = catY - earHeight * 0.35;  // Slightly up, includes ears
+  catHitboxR = catRadius + earHeight * 0.62;
 
-  eyeRadius = Math.round(16 * scale);
-  noseSize = Math.round(9 * scale);
-  mouthW = Math.round(18 * scale);
-  mouthH = Math.round(13 * scale);
+  eyeRadius = Math.round(9 * scale);
+  noseSize = Math.round(7 * scale);
+  mouthW = Math.round(12 * scale);
+  mouthH = Math.round(7 * scale);
 
   groundY = height - Math.round(25 * scale);
   ceilingY = Math.round(25 * scale);
 
-  broomWidth = Math.round(48 * scale);
-  broomBaseGap = Math.round(2.2 * catHitboxR); // very wide gap
-  broomMinGap = Math.round(1.5 * catHitboxR); // minimum gap (still wide)
+  broomWidth = Math.round(44 * scale);
+  broomBaseGap = Math.round(2.7 * catHitboxR); // wide gap
+  broomMinGap = Math.round(1.8 * catHitboxR); // minimum gap (still wide)
   broomGap = broomBaseGap;
 
-  broomBaseSpeed = 2.2 * scale;
+  broomBaseSpeed = 2.1 * scale;
   broomSpeed = broomBaseSpeed;
 
-  broomBaseInterval = Math.round(115 * scale);
+  broomBaseInterval = Math.round(120 * scale);
   minBroomInterval = Math.round(70 * scale);
   broomInterval = broomBaseInterval;
 
-  gravity = 0.56 * scale;
-  jumpPower = -8 * scale;
+  gravity = 0.54 * scale;
+  jumpPower = -7 * scale;
 
   // If brooms already exist, adjust their positions proportionally
   if (brooms) {
@@ -74,50 +72,51 @@ function resizeCanvas() {
   }
 }
 
-// --- Cat drawing (based on your image & feedback) ---
+// --- Cat drawing (matches your requests) ---
 function drawCatFace(x, y) {
-  // Ears (further apart, not too close to head center)
+  // Ears (start from further left/right, point more up, shorter)
   ctx.save();
-  ctx.lineWidth = 3 * scale;
+  ctx.lineWidth = 2.1 * scale;
   ctx.strokeStyle = "#111";
   ctx.fillStyle = "#fff";
   // Left ear outer
   ctx.beginPath();
-  ctx.moveTo(x - catRadius * 0.80, y - catRadius * 0.60); // Left base
-  ctx.lineTo(x - catRadius * 1.18, y - catRadius * 1.25); // Tip
-  ctx.lineTo(x - catRadius * 0.47, y - catRadius * 0.82); // Right base
+  ctx.moveTo(x - catRadius * 0.75, y - catRadius * 0.62); // Left base
+  ctx.lineTo(x - catRadius * 0.93, y - catRadius * 0.62 - earHeight); // Tip (more up)
+  ctx.lineTo(x - catRadius * 0.45, y - catRadius * 0.80); // Right base
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
   // Right ear outer
   ctx.beginPath();
-  ctx.moveTo(x + catRadius * 0.80, y - catRadius * 0.60);
-  ctx.lineTo(x + catRadius * 1.18, y - catRadius * 1.25);
-  ctx.lineTo(x + catRadius * 0.47, y - catRadius * 0.82);
+  ctx.moveTo(x + catRadius * 0.75, y - catRadius * 0.62);
+  ctx.lineTo(x + catRadius * 0.93, y - catRadius * 0.62 - earHeight);
+  ctx.lineTo(x + catRadius * 0.45, y - catRadius * 0.80);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-  // Ears (inner pink triangles, fully inside outer)
+
+  // Ears (inner pink triangles, fully inside outer, equivalent triangles)
   ctx.fillStyle = "#f7c8b3";
   // Left inner
   ctx.beginPath();
-  ctx.moveTo(x - catRadius * 0.80 + earWidth*0.19, y - catRadius * 0.60);
-  ctx.lineTo(x - catRadius * 1.18 + earWidth*0.28, y - catRadius * 1.25 + earHeight*0.22);
-  ctx.lineTo(x - catRadius * 0.47 - earWidth*0.14, y - catRadius * 0.82 + earHeight*0.10);
+  ctx.moveTo(x - catRadius * 0.73, y - catRadius * 0.65);
+  ctx.lineTo(x - catRadius * 0.89, y - catRadius * 0.62 - earHeight + earHeight*0.21);
+  ctx.lineTo(x - catRadius * 0.49, y - catRadius * 0.79);
   ctx.closePath();
   ctx.fill();
   // Right inner
   ctx.beginPath();
-  ctx.moveTo(x + catRadius * 0.80 - earWidth*0.19, y - catRadius * 0.60);
-  ctx.lineTo(x + catRadius * 1.18 - earWidth*0.28, y - catRadius * 1.25 + earHeight*0.22);
-  ctx.lineTo(x + catRadius * 0.47 + earWidth*0.14, y - catRadius * 0.82 + earHeight*0.10);
+  ctx.moveTo(x + catRadius * 0.73, y - catRadius * 0.65);
+  ctx.lineTo(x + catRadius * 0.89, y - catRadius * 0.62 - earHeight + earHeight*0.21);
+  ctx.lineTo(x + catRadius * 0.49, y - catRadius * 0.79);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 
   // Head (circle)
   ctx.save();
-  ctx.lineWidth = 3 * scale;
+  ctx.lineWidth = 2.1 * scale;
   ctx.strokeStyle = "#111";
   ctx.fillStyle = "#fff";
   ctx.beginPath();
@@ -126,32 +125,34 @@ function drawCatFace(x, y) {
   ctx.stroke();
   ctx.restore();
 
-  // Eyes
+  // Eyes (centered highlights)
   ctx.save();
   ctx.fillStyle = "#111";
   // Left eye
   ctx.beginPath();
-  ctx.arc(x - catRadius * 0.38, y - catRadius * 0.13, eyeRadius, eyeRadius, 0, Math.PI * 2);
+  ctx.arc(x - catRadius * 0.34, y - catRadius * 0.10, eyeRadius, 0, Math.PI * 2);
   ctx.fill();
-  // Highlight
+  // Highlight (centered)
   ctx.fillStyle = "#fff";
   ctx.beginPath();
-  ctx.arc(x - catRadius * 0.38 - eyeRadius*0.35, y - catRadius * 0.13 - eyeRadius*0.35, eyeRadius*0.4, eyeRadius*0.4, 0, Math.PI * 2);
+  ctx.arc(x - catRadius * 0.34, y - catRadius * 0.10, eyeRadius*0.38, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = "#111";
   // Right eye
   ctx.beginPath();
-  ctx.arc(x + catRadius * 0.38, y - catRadius * 0.13, eyeRadius, eyeRadius, 0, Math.PI * 2);
+  ctx.arc(x + catRadius * 0.34, y - catRadius * 0.10, eyeRadius, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "#fff";
   ctx.beginPath();
-  ctx.arc(x + catRadius * 0.38 + eyeRadius*0.35, y - catRadius * 0.13 - eyeRadius*0.35, eyeRadius*0.4, eyeRadius*0.4, 0, Math.PI * 2);
+  ctx.arc(x + catRadius * 0.34, y - catRadius * 0.10, eyeRadius*0.38, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
-  // Nose (triangle)
+  // Nose (pink triangle with black border)
   ctx.save();
+  ctx.lineWidth = 1.2 * scale;
+  ctx.strokeStyle = "#111";
   ctx.fillStyle = "#f7c8b3";
   ctx.beginPath();
   ctx.moveTo(x, y + catRadius * 0.09);
@@ -159,23 +160,24 @@ function drawCatFace(x, y) {
   ctx.lineTo(x + noseSize/2, y + catRadius * 0.18);
   ctx.closePath();
   ctx.fill();
+  ctx.stroke();
   ctx.restore();
 
   // Smile (gentle W)
   ctx.save();
   ctx.strokeStyle = "#111";
-  ctx.lineWidth = 2.2 * scale;
+  ctx.lineWidth = 1.8 * scale;
   ctx.beginPath();
-  let smileY = y + catRadius * 0.27;
+  let smileY = y + catRadius * 0.23;
   ctx.moveTo(x - mouthW/2, smileY);
   ctx.bezierCurveTo(
-    x - mouthW/2 + mouthW*0.2, smileY + mouthH*0.3,
-    x - mouthW*0.1, smileY + mouthH*0.4,
-    x, smileY + mouthH*0.1
+    x - mouthW/2 + mouthW*0.2, smileY + mouthH*0.25,
+    x - mouthW*0.1, smileY + mouthH*0.38,
+    x, smileY + mouthH*0.11
   );
   ctx.bezierCurveTo(
-    x + mouthW*0.1, smileY + mouthH*0.4,
-    x + mouthW/2 - mouthW*0.2, smileY + mouthH*0.3,
+    x + mouthW*0.1, smileY + mouthH*0.38,
+    x + mouthW/2 - mouthW*0.2, smileY + mouthH*0.25,
     x + mouthW/2, smileY
   );
   ctx.stroke();
@@ -184,19 +186,19 @@ function drawCatFace(x, y) {
   // Whiskers
   ctx.save();
   ctx.strokeStyle = "#111";
-  ctx.lineWidth = 1.6 * scale;
+  ctx.lineWidth = 1.1 * scale;
   // Left whiskers
   for (let i = -1; i <= 1; i++) {
     ctx.beginPath();
-    ctx.moveTo(x - catRadius*0.18, y + catRadius*0.14 + i*scale*7);
-    ctx.lineTo(x - catRadius*0.78, y + catRadius*0.12 + i*scale*13);
+    ctx.moveTo(x - catRadius*0.18, y + catRadius*0.13 + i*scale*6);
+    ctx.lineTo(x - catRadius*0.67, y + catRadius*0.09 + i*scale*11);
     ctx.stroke();
   }
   // Right whiskers
   for (let i = -1; i <= 1; i++) {
     ctx.beginPath();
-    ctx.moveTo(x + catRadius*0.18, y + catRadius*0.14 + i*scale*7);
-    ctx.lineTo(x + catRadius*0.78, y + catRadius*0.12 + i*scale*13);
+    ctx.moveTo(x + catRadius*0.18, y + catRadius*0.13 + i*scale*6);
+    ctx.lineTo(x + catRadius*0.67, y + catRadius*0.09 + i*scale*11);
     ctx.stroke();
   }
   ctx.restore();
@@ -204,7 +206,7 @@ function drawCatFace(x, y) {
 
 // --- Collision uses circular hitbox (includes ears, not whiskers) ---
 function catHitbox() {
-  return {x: catX, y: catY - earHeight*0.5, r: catHitboxR};
+  return {x: catX, y: catHitboxY, r: catHitboxR};
 }
 function checkCollision() {
   let hit = catHitbox();
@@ -225,9 +227,9 @@ function checkCollision() {
 // --- Drawing functions (score, UI, etc) ---
 function drawScore() {
   ctx.fillStyle = "#333";
-  ctx.font = `${Math.round(32 * scale)}px Arial`;
+  ctx.font = `${Math.round(28 * scale)}px Arial`;
   ctx.textAlign = "left";
-  ctx.fillText(`Score: ${score}`, 20 * scale, 48 * scale);
+  ctx.fillText(`Score: ${score}`, 20 * scale, 44 * scale);
 }
 function wrapText(text, x, y, maxWidth, lineHeight, maxLines, font, color, align="center") {
   ctx.save();
@@ -283,7 +285,7 @@ function resetGame() {
 function updateBroomDifficulty() {
   let logScore = Math.log2(1 + score);
   broomGap = Math.max(broomBaseGap - (broomBaseGap - broomMinGap) * (logScore / 8), broomMinGap);
-  broomSpeed = Math.min(broomBaseSpeed + (3 * scale) * (logScore / 10), broomBaseSpeed + 3 * scale);
+  broomSpeed = Math.min(broomBaseSpeed + (2.7 * scale) * (logScore / 10), broomBaseSpeed + 2.7 * scale);
   broomInterval = Math.max(broomBaseInterval - (broomBaseInterval - minBroomInterval) * (logScore / 10), minBroomInterval);
 }
 function update() {
@@ -314,7 +316,7 @@ function update() {
     if (checkCollision()) gameOver = true;
   } else if (gameOver) {
     ctx.fillStyle = "#d32f2f";
-    ctx.font = `bold ${Math.round(34*scale)}px Arial`;
+    ctx.font = `bold ${Math.round(28*scale)}px Arial`;
     ctx.textAlign = "center";
     ctx.fillText("Game Over!", width / 2, height / 2 - 32 * scale);
     wrapText(
@@ -322,9 +324,9 @@ function update() {
       width / 2,
       height / 2 + 20 * scale,
       width - 60 * scale,
-      28 * scale,
+      24 * scale,
       3,
-      `${Math.round(22*scale)}px Arial`,
+      `${Math.round(17*scale)}px Arial`,
       "#d32f2f"
     );
     drawBrooms();
@@ -336,11 +338,11 @@ function update() {
     wrapText(
       "Press SPACE, ENTER, or TAP to start",
       width / 2,
-      height / 2 + 100 * scale,
+      height / 2 + 80 * scale,
       width - 60 * scale,
-      26 * scale,
+      22 * scale,
       3,
-      `${Math.round(20*scale)}px Arial`,
+      `${Math.round(15*scale)}px Arial`,
       "#333"
     );
   }

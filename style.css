@@ -15,8 +15,6 @@ body {
   display: block;
   max-width: 98vw;
   max-height: 98vh;
-  width: 100%;
-  height: auto;
   border-radius: 18px;
   touch-action: none;
 }
