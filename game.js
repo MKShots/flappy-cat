@@ -1,187 +1,244 @@
+// --- Responsive Flappy Cat Game ---
+// Cat face inspired by uploaded image ![image1](image1)
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Cat geometry
-const catX = 90;
-const catHeadRadiusX = 27; // Reduced head width
-const catHeadRadiusY = 21; // Reduced head height
-const earHeight = 22;      // Ear extends this far above the top of the head
-const catRadiusX = catHeadRadiusX; // For hitbox, width is head width
-const catRadiusY = catHeadRadiusY + earHeight; // For hitbox, height is head + ears
+// Responsive canvas settings
+let baseWidth = 400, baseHeight = 600; // Reference size for scaling
+let scale = 1;
 
-// Cat face data
-const catFaces = [
-  {
-    name: "Classic",
-    draw: (catX, catY) => {
-      // Draw ears (outer triangles)
-      ctx.save();
-      ctx.fillStyle = "#fff";
-      ctx.strokeStyle = "#111";
-      ctx.lineWidth = 2.5;
-      // Left ear outer
-      ctx.beginPath();
-      ctx.moveTo(catX - 17, catY - catHeadRadiusY + 2);                    // left base
-      ctx.lineTo(catX - 34, catY - catHeadRadiusY - earHeight);            // tip
-      ctx.lineTo(catX - 3, catY - catHeadRadiusY - 2);                     // right base
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      // Right ear outer
-      ctx.beginPath();
-      ctx.moveTo(catX + 17, catY - catHeadRadiusY + 2);
-      ctx.lineTo(catX + 34, catY - catHeadRadiusY - earHeight);
-      ctx.lineTo(catX + 3, catY - catHeadRadiusY - 2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      // Ears (inner pink triangles)
-      ctx.fillStyle = "#f7c8b3";
-      // Left inner
-      ctx.beginPath();
-      ctx.moveTo(catX - 17, catY - catHeadRadiusY + 2);
-      ctx.lineTo(catX - 29, catY - catHeadRadiusY - earHeight + 5);
-      ctx.lineTo(catX - 8, catY - catHeadRadiusY - 3);
-      ctx.closePath();
-      ctx.fill();
-      // Right inner
-      ctx.beginPath();
-      ctx.moveTo(catX + 17, catY - catHeadRadiusY + 2);
-      ctx.lineTo(catX + 29, catY - catHeadRadiusY - earHeight + 5);
-      ctx.lineTo(catX + 8, catY - catHeadRadiusY - 3);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+// --- Game variables (will be rescaled in resizeCanvas) ---
+let catX, catY, catRadius, earHeight, earWidth, eyeRadius, noseSize, mouthWidth, mouthHeight;
+let catHitboxY, catHitboxR;
+let groundY, ceilingY, broomWidth, broomGap, broomMinGap, broomBaseGap, broomSpeed, broomBaseSpeed;
+let brooms, broomTimer, broomInterval, broomBaseInterval, minBroomInterval;
+let gravity, jumpPower;
+let gameStarted, inSelectionMode, gameOver, score, catVY;
+let unlockedFaces, selectedFace;
 
-      // Face border
-      ctx.save();
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = "#111";
-      ctx.beginPath();
-      ctx.ellipse(catX, catY, catHeadRadiusX, catHeadRadiusY, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+// --- Responsive scaling function ---
+function resizeCanvas() {
+  // Resize canvas to fit window, but keep aspect ratio
+  let ww = window.innerWidth, wh = window.innerHeight;
+  let targetW = Math.min(ww - 10, 500);
+  let targetH = Math.min(wh - 10, 800);
+  // Keep 2:3 aspect
+  if (targetW/targetH > 2/3) targetW = targetH * 2/3;
+  if (targetH/targetW > 1.5) targetH = targetW * 1.5;
+  canvas.width = targetW;
+  canvas.height = targetH;
+  scale = canvas.width / baseWidth;
 
-      // Cat face fill
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.ellipse(catX, catY, catHeadRadiusX, catHeadRadiusY, 0, 0, Math.PI * 2);
-      ctx.fill();
+  // Rescale game variables
+  catX = Math.round(canvas.width * 0.22);
+  catRadius = Math.round(60 * scale);
+  earHeight = Math.round(38 * scale);
+  earWidth = Math.round(32 * scale);
+  catY = canvas.height / 2;
+  catHitboxY = catY;
+  catHitboxR = catRadius + earHeight * 0.75;
 
-      // Eyes (bigger, lower, cuter, with highlights)
-      // Left eye
-      ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(catX - 10, catY - 3, 5.5, 7, -0.08, 0, Math.PI * 2);
-      ctx.fillStyle = '#333';
-      ctx.fill();
-      // Highlight
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.ellipse(catX - 12, catY - 7, 1.6, 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      // Right eye
-      ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(catX + 10, catY - 3, 5.5, 7, 0.08, 0, Math.PI * 2);
-      ctx.fillStyle = '#333';
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.ellipse(catX + 8, catY - 7, 1.6, 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+  eyeRadius = Math.round(16 * scale);
+  noseSize = Math.round(9 * scale);
+  mouthWidth = Math.round(18 * scale);
+  mouthHeight = Math.round(13 * scale);
 
-      // Nose (small pink triangle)
-      ctx.save();
-      ctx.fillStyle = "#f7c8b3";
-      ctx.beginPath();
-      ctx.moveTo(catX, catY + 4);
-      ctx.lineTo(catX - 4, catY + 9);
-      ctx.lineTo(catX + 4, catY + 9);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+  groundY = canvas.height - Math.round(25 * scale);
+  ceilingY = Math.round(25 * scale);
 
-      // Smile (arc)
-      ctx.save();
-      ctx.strokeStyle = "#a86a3d";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(catX, catY + 13, 8, Math.PI * 0.15, Math.PI * 0.85, false);
-      ctx.stroke();
-      ctx.restore();
+  broomWidth = Math.round(48 * scale);
+  broomBaseGap = Math.round(2.1 * catHitboxR); // very wide gap
+  broomMinGap = Math.round(1.5 * catHitboxR); // minimum gap (still wide)
+  broomGap = broomBaseGap;
 
-      // Whiskers (do not affect collision)
-      ctx.save();
-      ctx.strokeStyle = "#888";
-      ctx.lineWidth = 1.6;
-      // Left whiskers
-      for (let i = -1; i <= 1; i++) {
-        ctx.beginPath();
-        ctx.moveTo(catX - 5, catY + 5 + i * 4);
-        ctx.lineTo(catX - 30, catY + 4 + i * 9);
-        ctx.stroke();
-      }
-      // Right whiskers
-      for (let i = -1; i <= 1; i++) {
-        ctx.beginPath();
-        ctx.moveTo(catX + 5, catY + 5 + i * 4);
-        ctx.lineTo(catX + 30, catY + 4 + i * 9);
-        ctx.stroke();
-      }
-      ctx.restore();
+  broomBaseSpeed = 2.2 * scale;
+  broomSpeed = broomBaseSpeed;
+
+  broomBaseInterval = Math.round(115 * scale);
+  minBroomInterval = Math.round(70 * scale);
+  broomInterval = broomBaseInterval;
+
+  gravity = 0.56 * scale;
+  jumpPower = -8 * scale;
+
+  // If brooms already exist, adjust their positions
+  if (brooms) {
+    for (let broom of brooms) {
+      broom.x = Math.round(broom.x * canvas.width / baseWidth);
     }
-  },
-];
-let unlockedFaces = [0];
-let selectedFace = 0;
-
-let catY = canvas.height / 2;
-let catVY = 0;
-let gravity = 0.7;
-let jumpPower = -10;
-let gameStarted = false;
-let inSelectionMode = unlockedFaces.length > 1;
-
-// Obstacle properties and game difficulty
-let broomWidth = 60;
-let baseBroomGap = 320;      // Wider gap
-let minBroomGap = 190;       // Wider minimum gap
-let broomGap = baseBroomGap;
-let brooms = [];
-let broomTimer = 0;
-let baseBroomInterval = 120;
-let minBroomInterval = 70;
-let broomInterval = baseBroomInterval;
-let broomSpeed = 2.5;
-let maxBroomSpeed = 6;
-
-let gameOver = false;
-let score = 0;
-
-// --- Drawing functions ---
-
-function drawCatFace() {
-  catFaces[selectedFace].draw(catX, catY);
-}
-
-function drawBrooms() {
-  ctx.fillStyle = "#c28d60";
-  for (let broom of brooms) {
-    ctx.fillRect(broom.x, 0, broomWidth, broom.gapY - broom.gap / 2);
-    ctx.fillRect(broom.x, broom.gapY + broom.gap / 2, broomWidth, canvas.height - (broom.gapY + broom.gap / 2));
   }
 }
 
-function drawScore() {
-  ctx.fillStyle = "#333";
-  ctx.font = "32px Arial";
-  ctx.textAlign = "left";
-  ctx.fillText(`Score: ${score}`, 20, 50);
+// --- Cat drawing inspired by image ---
+function drawCatFace(x, y) {
+  // Ears
+  ctx.save();
+  ctx.lineWidth = 3 * scale;
+  ctx.strokeStyle = "#111";
+  ctx.fillStyle = "#fff";
+  // Left ear
+  ctx.beginPath();
+  ctx.moveTo(x - catRadius * 0.55, y - catRadius * 0.8);
+  ctx.lineTo(x - catRadius * 0.55 - earWidth/2, y - catRadius * 0.8 - earHeight);
+  ctx.lineTo(x - catRadius * 0.1, y - catRadius * 0.95);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Left inner
+  ctx.fillStyle = "#f7c8b3";
+  ctx.beginPath();
+  ctx.moveTo(x - catRadius * 0.51, y - catRadius * 0.82);
+  ctx.lineTo(x - catRadius * 0.55 - earWidth/2 + earWidth*0.23, y - catRadius * 0.8 - earHeight+earHeight*0.4);
+  ctx.lineTo(x - catRadius * 0.13, y - catRadius * 0.93);
+  ctx.closePath();
+  ctx.fill();
+  // Right ear
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.moveTo(x + catRadius * 0.55, y - catRadius * 0.8);
+  ctx.lineTo(x + catRadius * 0.55 + earWidth/2, y - catRadius * 0.8 - earHeight);
+  ctx.lineTo(x + catRadius * 0.1, y - catRadius * 0.95);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Right inner
+  ctx.fillStyle = "#f7c8b3";
+  ctx.beginPath();
+  ctx.moveTo(x + catRadius * 0.51, y - catRadius * 0.82);
+  ctx.lineTo(x + catRadius * 0.55 + earWidth/2 - earWidth*0.23, y - catRadius * 0.8 - earHeight+earHeight*0.4);
+  ctx.lineTo(x + catRadius * 0.13, y - catRadius * 0.93);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Head (circle)
+  ctx.save();
+  ctx.lineWidth = 3 * scale;
+  ctx.strokeStyle = "#111";
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(x, y, catRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // Eyes
+  ctx.save();
+  ctx.fillStyle = "#111";
+  // Left eye
+  ctx.beginPath();
+  ctx.arc(x - catRadius * 0.38, y - catRadius * 0.13, eyeRadius, eyeRadius, 0, Math.PI * 2);
+  ctx.fill();
+  // Highlight
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(x - catRadius * 0.38 - eyeRadius*0.35, y - catRadius * 0.13 - eyeRadius*0.35, eyeRadius*0.4, eyeRadius*0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#111";
+  // Right eye
+  ctx.beginPath();
+  ctx.arc(x + catRadius * 0.38, y - catRadius * 0.13, eyeRadius, eyeRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(x + catRadius * 0.38 + eyeRadius*0.35, y - catRadius * 0.13 - eyeRadius*0.35, eyeRadius*0.4, eyeRadius*0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Nose (triangle)
+  ctx.save();
+  ctx.fillStyle = "#f7c8b3";
+  ctx.beginPath();
+  ctx.moveTo(x, y + catRadius * 0.06);
+  ctx.lineTo(x - noseSize/2, y + catRadius * 0.16);
+  ctx.lineTo(x + noseSize/2, y + catRadius * 0.16);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Smile (gentle W)
+  ctx.save();
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = 2.2 * scale;
+  ctx.beginPath();
+  let smileY = y + catRadius * 0.21;
+  ctx.moveTo(x - mouthWidth/2, smileY);
+  ctx.bezierCurveTo(
+    x - mouthWidth/2 + mouthWidth*0.2, smileY + mouthHeight*0.5,
+    x - mouthWidth*0.1, smileY + mouthHeight*0.7,
+    x, smileY + mouthHeight*0.3
+  );
+  ctx.bezierCurveTo(
+    x + mouthWidth*0.1, smileY + mouthHeight*0.7,
+    x + mouthWidth/2 - mouthWidth*0.2, smileY + mouthHeight*0.5,
+    x + mouthWidth/2, smileY
+  );
+  ctx.stroke();
+  ctx.restore();
+
+  // Cheek dots (freckles)
+  ctx.save();
+  ctx.fillStyle = "#111";
+  let cheekY = y + catRadius*0.17;
+  ctx.beginPath();
+  ctx.arc(x - catRadius*0.48, cheekY, scale*2, 0, Math.PI*2);
+  ctx.arc(x + catRadius*0.48, cheekY, scale*2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  // Whiskers
+  ctx.save();
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = 1.5 * scale;
+  // Left whiskers
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x - catRadius*0.18, y + catRadius*0.14 + i*scale*7);
+    ctx.lineTo(x - catRadius*0.78, y + catRadius*0.12 + i*scale*13);
+    ctx.stroke();
+  }
+  // Right whiskers
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x + catRadius*0.18, y + catRadius*0.14 + i*scale*7);
+    ctx.lineTo(x + catRadius*0.78, y + catRadius*0.12 + i*scale*13);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
+// --- Collision uses circular hitbox (includes ears, not whiskers) ---
+function catHitbox() {
+  return {x: catX, y: catY - earHeight*0.5, r: catHitboxR};
+}
+function checkCollision() {
+  let hit = catHitbox();
+  for (let broom of brooms) {
+    // Check horizontal overlap
+    if (hit.x + hit.r > broom.x && hit.x - hit.r < broom.x + broomWidth) {
+      // Check vertical collision (outside gap)
+      if (
+        hit.y - hit.r < broom.gapY - broom.gap/2 ||
+        hit.y + hit.r > broom.gapY + broom.gap/2
+      ) {
+        return true;
+      }
+    }
+  }
+  // Touching the bottom = game over
+  if (catY + catRadius > groundY) return true;
+  return false;
+}
+
+// --- Drawing functions (score, UI, etc) ---
+function drawScore() {
+  ctx.fillStyle = "#333";
+  ctx.font = `${Math.round(32 * scale)}px Arial`;
+  ctx.textAlign = "left";
+  ctx.fillText(`Score: ${score}`, 20 * scale, 48 * scale);
+}
 function wrapText(text, x, y, maxWidth, lineHeight, maxLines, font, color, align="center") {
   ctx.save();
   ctx.font = font;
@@ -208,168 +265,120 @@ function wrapText(text, x, y, maxWidth, lineHeight, maxLines, font, color, align
   }
   ctx.restore();
 }
-
 function drawSelectionMenu() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#333";
-  ctx.font = "bold 32px Arial";
+  ctx.font = `bold ${Math.round(32*scale)}px Arial`;
   ctx.textAlign = "center";
-  ctx.fillText("Choose Your Cat Face", canvas.width / 2, 100);
-
-  for (let i = 0; i < unlockedFaces.length; i++) {
-    let x = canvas.width / 2 + (i - (unlockedFaces.length - 1) / 2) * 150;
-    let y = canvas.height / 2;
-    ctx.save();
-    ctx.globalAlpha = (i === selectedFace) ? 1.0 : 0.5;
-    catFaces[unlockedFaces[i]].draw(x, y);
-    ctx.restore();
-    if (i === selectedFace) {
-      ctx.strokeStyle = "#0074d9";
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.ellipse(x, y, catHeadRadiusX + 10, catHeadRadiusY + earHeight + 10, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
+  ctx.fillText("Choose Your Cat Face", canvas.width / 2, 100 * scale);
+  // Only 1 face for now
+  drawCatFace(canvas.width/2, canvas.height/2);
   wrapText(
     "Use ←/→ or click to select, Enter/Space to confirm",
     canvas.width / 2,
-    canvas.height - 80,
-    canvas.width - 60,
-    28,
+    canvas.height - 80 * scale,
+    canvas.width - 60 * scale,
+    28 * scale,
     3,
-    "28px Arial",
+    `${Math.round(24*scale)}px Arial`,
     "#333"
   );
 }
+function drawBrooms() {
+  ctx.fillStyle = "#c28d60";
+  for (let broom of brooms) {
+    ctx.fillRect(broom.x, 0, broomWidth, broom.gapY - broom.gap / 2);
+    ctx.fillRect(broom.x, broom.gapY + broom.gap / 2, broomWidth, canvas.height - (broom.gapY + broom.gap / 2));
+  }
+}
+function drawGround() {
+  ctx.fillStyle = "#c6b79b";
+  ctx.fillRect(0, groundY, canvas.width, canvas.height-groundY);
+}
 
 // --- Game logic ---
-
 function resetGame() {
   catY = canvas.height / 2;
   catVY = 0;
-  broomGap = baseBroomGap;
-  broomSpeed = 2.5;
-  broomInterval = baseBroomInterval;
+  broomGap = broomBaseGap;
+  broomSpeed = broomBaseSpeed;
+  broomInterval = broomBaseInterval;
   brooms = [];
   broomTimer = 0;
   score = 0;
   gameOver = false;
   gameStarted = false;
-  inSelectionMode = unlockedFaces.length > 1;
+  inSelectionMode = false; // only one face
 }
-
 function updateBroomDifficulty() {
-  // Smoothly decrease gap and interval, smoothly increase speed with score.
   let logScore = Math.log2(1 + score);
-
-  broomGap = Math.max(baseBroomGap - (baseBroomGap - minBroomGap) * (logScore / 8), minBroomGap);
-  broomSpeed = Math.min(2.5 + (maxBroomSpeed - 2.5) * (logScore / 10), maxBroomSpeed);
-  broomInterval = Math.max(baseBroomInterval - (baseBroomInterval - minBroomInterval) * (logScore / 10), minBroomInterval);
+  broomGap = Math.max(broomBaseGap - (broomBaseGap - broomMinGap) * (logScore / 8), broomMinGap);
+  broomSpeed = Math.min(broomBaseSpeed + (maxBroomSpeed - broomBaseSpeed) * (logScore / 10), maxBroomSpeed);
+  broomInterval = Math.max(broomBaseInterval - (broomBaseInterval - minBroomInterval) * (logScore / 10), minBroomInterval);
 }
-
-function checkCollision() {
-  for (let broom of brooms) {
-    if (
-      catX + catRadiusX > broom.x && catX - catRadiusX < broom.x + broomWidth
-    ) {
-      if (
-        catY - catRadiusY < broom.gapY - broom.gap / 2 ||
-        catY + catRadiusY > broom.gapY + broom.gap / 2
-      ) {
-        return true;
-      }
-    }
-  }
-  if (catY > canvas.height - catRadiusY) {
-    return true;
-  }
-  return false;
-}
-
 function update() {
-  if (inSelectionMode) {
-    drawSelectionMenu();
-    return requestAnimationFrame(update);
-  }
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawGround();
 
   if (gameStarted && !gameOver) {
     catVY += gravity;
     catY += catVY;
-
     updateBroomDifficulty();
-
     broomTimer++;
     if (broomTimer >= broomInterval) {
       broomTimer = 0;
-      const gapY = 60 + Math.random() * (canvas.height - 120);
+      const gapY = ceilingY + broomGap/2 + Math.random() * (groundY - ceilingY - broomGap);
       brooms.push({ x: canvas.width, gapY, gap: broomGap, passed: false });
     }
     for (let broom of brooms) {
       broom.x -= broomSpeed;
     }
     brooms = brooms.filter(broom => broom.x + broomWidth > 0);
-
     for (let broom of brooms) {
-      if (!broom.passed && broom.x + broomWidth < catX - catRadiusX) {
+      if (!broom.passed && broom.x + broomWidth < catX - catHitboxR) {
         broom.passed = true;
         score++;
       }
     }
-
     drawBrooms();
-
-    if (checkCollision()) {
-      gameOver = true;
-    }
+    if (checkCollision()) gameOver = true;
   } else if (gameOver) {
     ctx.fillStyle = "#d32f2f";
-    ctx.font = "bold 34px Arial";
+    ctx.font = `bold ${Math.round(34*scale)}px Arial`;
     ctx.textAlign = "center";
-    ctx.fillText("Game Over!", canvas.width / 2, canvas.height / 2 - 32);
-
+    ctx.fillText("Game Over!", canvas.width / 2, canvas.height / 2 - 32 * scale);
     wrapText(
-      "Press SPACE, ENTER, or CLICK to restart",
+      "Press SPACE, ENTER, or TAP to restart",
       canvas.width / 2,
-      canvas.height / 2 + 20,
-      canvas.width - 60,
-      28,
+      canvas.height / 2 + 20 * scale,
+      canvas.width - 60 * scale,
+      28 * scale,
       3,
-      "24px Arial",
+      `${Math.round(22*scale)}px Arial`,
       "#d32f2f"
     );
     drawBrooms();
   }
 
-  drawCatFace();
+  drawCatFace(catX, catY);
   drawScore();
-
   if (!gameStarted && !gameOver && !inSelectionMode) {
     wrapText(
-      "Press SPACE, ENTER, or CLICK to start",
+      "Press SPACE, ENTER, or TAP to start",
       canvas.width / 2,
-      canvas.height / 2 + 100,
-      canvas.width - 60,
-      26,
+      canvas.height / 2 + 100 * scale,
+      canvas.width - 60 * scale,
+      26 * scale,
       3,
-      "22px Arial",
+      `${Math.round(20*scale)}px Arial`,
       "#333"
     );
   }
-
   requestAnimationFrame(update);
 }
 
 // --- Controls ---
-
 function triggerFlap() {
-  if (inSelectionMode) {
-    inSelectionMode = false;
-    gameStarted = false;
-    return;
-  }
   if (!gameStarted) {
     resetGame();
     gameStarted = true;
@@ -382,46 +391,42 @@ function triggerFlap() {
   }
 }
 
-function selectFace(direction) {
-  if (unlockedFaces.length <= 1) return;
-  selectedFace = (selectedFace + direction + unlockedFaces.length) % unlockedFaces.length;
-}
-
+// Keyboard
 document.addEventListener('keydown', function (e) {
-  if (inSelectionMode) {
-    if (e.code === 'ArrowLeft') selectFace(-1);
-    if (e.code === 'ArrowRight') selectFace(1);
-    if (e.code === 'Space' || e.code === 'Enter') triggerFlap();
-    return;
-  }
   if (e.code === 'Space' || e.code === 'Enter') {
+    e.preventDefault();
     triggerFlap();
   }
 });
 
+// Mouse
 canvas.addEventListener('mousedown', function (e) {
-  if (inSelectionMode) {
-    for (let i = 0; i < unlockedFaces.length; i++) {
-      let x = canvas.width / 2 + (i - (unlockedFaces.length - 1) / 2) * 150;
-      let y = canvas.height / 2;
-      let dx = e.offsetX - x;
-      let dy = e.offsetY - y;
-      if (Math.sqrt(dx * dx + dy * dy) < catHeadRadiusX + earHeight + 14) {
-        selectedFace = i;
-        triggerFlap();
-        return;
-      }
-    }
-    selectFace(1);
-  } else {
-    triggerFlap();
-  }
-});
-
-canvas.addEventListener('touchstart', function (e) {
+  e.preventDefault();
   triggerFlap();
 });
 
-// --- Start up ---
-resetGame();
+// Touch (for mobile)
+canvas.addEventListener('touchstart', function (e) {
+  e.preventDefault();
+  triggerFlap();
+});
+
+// Prevent scrolling when touching the canvas
+canvas.addEventListener('touchmove', function(e) {
+  e.preventDefault();
+});
+
+// --- Init ---
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  // Also reposition cat to center if not started
+  if (!gameStarted) catY = canvas.height/2;
+});
+function initVars() {
+  unlockedFaces = [0];
+  selectedFace = 0;
+  resetGame();
+}
+initVars();
+resizeCanvas();
 update();

@@ -1,14 +1,23 @@
 body {
-  background: #F3F1EA; /* Original off-white */
+  background: #F3F1EA;
   margin: 0;
   min-height: 100vh;
+  min-width: 100vw;
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: none;
 }
 
 #gameCanvas {
-  background: #e8f0fe; /* Pale blue for contrast */
+  background: #e8f0fe;
   box-shadow: 0 0 10px #888;
   display: block;
+  /* Make canvas scale smaller on mobile screens */
+  max-width: 98vw;
+  max-height: 98vh;
+  width: 100%;
+  height: auto;
+  border-radius: 18px;
+  touch-action: none;
 }
