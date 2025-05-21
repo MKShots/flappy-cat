@@ -1,4 +1,4 @@
-# 😺 Flappy Cat & The Broom Chase
+# 😺 Flappy Cat Game
 
 A relaxing, cartoon-style browser game where you play as a cat dodging brooms through a steampunk city!
 Unlock new cat faces as you reach checkpoints, and enjoy the endless, chill gameplay.
