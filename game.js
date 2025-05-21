@@ -6,15 +6,26 @@ const catFaces = [
   {
     name: "Classic",
     draw: (catX, catY) => {
+      // Draw border first for visibility
+      ctx.save();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#111";
+      ctx.beginPath();
+      ctx.ellipse(catX, catY, catRadiusX, catRadiusY, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      // Cat face
       ctx.fillStyle = '#fff';
       ctx.beginPath();
       ctx.ellipse(catX, catY, catRadiusX, catRadiusY, 0, 0, Math.PI * 2);
       ctx.fill();
+      // Eyes
       ctx.fillStyle = '#333';
       ctx.beginPath();
       ctx.arc(catX - 15, catY - 7, 6, 0, Math.PI * 2);
       ctx.arc(catX + 15, catY - 7, 6, 0, Math.PI * 2);
       ctx.fill();
+      // Nose
       ctx.fillStyle = '#f7c8b3';
       ctx.beginPath();
       ctx.ellipse(catX, catY + 12, 8, 5, 0, 0, Math.PI * 2);
@@ -37,16 +48,16 @@ const catRadiusY = 30;
 
 // Obstacle properties and game difficulty
 let broomWidth = 60;
-let baseBroomGap = 260;      // Much wider gap!
-let minBroomGap = 120;       // Still achievable
+let baseBroomGap = 260;
+let minBroomGap = 120;
 let broomGap = baseBroomGap;
 let brooms = [];
 let broomTimer = 0;
-let baseBroomInterval = 120; // Longer interval for early levels
-let minBroomInterval = 80;
+let baseBroomInterval = 120;
+let minBroomInterval = 70;
 let broomInterval = baseBroomInterval;
-let broomSpeed = 2.5;        // Slower start
-let maxBroomSpeed = 6;       // Top speed is reasonable
+let broomSpeed = 2.5;
+let maxBroomSpeed = 6;
 
 let gameOver = false;
 let score = 0;
@@ -150,14 +161,13 @@ function resetGame() {
 }
 
 function updateBroomDifficulty() {
-  // Gradually decrease gap every 20 levels, increase speed every 30, adjust interval every 25
-  let gapLevel = Math.floor(score / 20);
-  let speedLevel = Math.floor(score / 30);
-  let intervalLevel = Math.floor(score / 25);
+  // Smoothly decrease gap and interval, smoothly increase speed with score.
+  // Use a nonlinear (logarithmic) scale for smooth but slowing progression.
+  let logScore = Math.log2(1 + score);
 
-  broomGap = Math.max(baseBroomGap - 30 * gapLevel, minBroomGap);
-  broomSpeed = Math.min(2.5 + 0.6 * speedLevel, maxBroomSpeed);
-  broomInterval = Math.max(baseBroomInterval - 8 * intervalLevel, minBroomInterval);
+  broomGap = Math.max(baseBroomGap - (baseBroomGap - minBroomGap) * (logScore / 8), minBroomGap);
+  broomSpeed = Math.min(2.5 + (maxBroomSpeed - 2.5) * (logScore / 10), maxBroomSpeed);
+  broomInterval = Math.max(baseBroomInterval - (baseBroomInterval - minBroomInterval) * (logScore / 10), minBroomInterval);
 }
 
 function checkCollision() {
