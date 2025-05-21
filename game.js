@@ -1,55 +1,154 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// Cat geometry
+const catX = 90;
+const catHeadRadiusX = 27; // Reduced head width
+const catHeadRadiusY = 21; // Reduced head height
+const earHeight = 22;      // Ear extends this far above the top of the head
+const catRadiusX = catHeadRadiusX; // For hitbox, width is head width
+const catRadiusY = catHeadRadiusY + earHeight; // For hitbox, height is head + ears
+
 // Cat face data
 const catFaces = [
   {
     name: "Classic",
     draw: (catX, catY) => {
-      // Draw border first for visibility
+      // Draw ears (outer triangles)
       ctx.save();
-      ctx.lineWidth = 3;
+      ctx.fillStyle = "#fff";
+      ctx.strokeStyle = "#111";
+      ctx.lineWidth = 2.5;
+      // Left ear outer
+      ctx.beginPath();
+      ctx.moveTo(catX - 17, catY - catHeadRadiusY + 2);                    // left base
+      ctx.lineTo(catX - 34, catY - catHeadRadiusY - earHeight);            // tip
+      ctx.lineTo(catX - 3, catY - catHeadRadiusY - 2);                     // right base
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Right ear outer
+      ctx.beginPath();
+      ctx.moveTo(catX + 17, catY - catHeadRadiusY + 2);
+      ctx.lineTo(catX + 34, catY - catHeadRadiusY - earHeight);
+      ctx.lineTo(catX + 3, catY - catHeadRadiusY - 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Ears (inner pink triangles)
+      ctx.fillStyle = "#f7c8b3";
+      // Left inner
+      ctx.beginPath();
+      ctx.moveTo(catX - 17, catY - catHeadRadiusY + 2);
+      ctx.lineTo(catX - 29, catY - catHeadRadiusY - earHeight + 5);
+      ctx.lineTo(catX - 8, catY - catHeadRadiusY - 3);
+      ctx.closePath();
+      ctx.fill();
+      // Right inner
+      ctx.beginPath();
+      ctx.moveTo(catX + 17, catY - catHeadRadiusY + 2);
+      ctx.lineTo(catX + 29, catY - catHeadRadiusY - earHeight + 5);
+      ctx.lineTo(catX + 8, catY - catHeadRadiusY - 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Face border
+      ctx.save();
+      ctx.lineWidth = 2.5;
       ctx.strokeStyle = "#111";
       ctx.beginPath();
-      ctx.ellipse(catX, catY, catRadiusX, catRadiusY, 0, 0, Math.PI * 2);
+      ctx.ellipse(catX, catY, catHeadRadiusX, catHeadRadiusY, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
-      // Cat face
+
+      // Cat face fill
       ctx.fillStyle = '#fff';
       ctx.beginPath();
-      ctx.ellipse(catX, catY, catRadiusX, catRadiusY, 0, 0, Math.PI * 2);
+      ctx.ellipse(catX, catY, catHeadRadiusX, catHeadRadiusY, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Eyes
+
+      // Eyes (bigger, lower, cuter, with highlights)
+      // Left eye
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(catX - 10, catY - 3, 5.5, 7, -0.08, 0, Math.PI * 2);
       ctx.fillStyle = '#333';
-      ctx.beginPath();
-      ctx.arc(catX - 15, catY - 7, 6, 0, Math.PI * 2);
-      ctx.arc(catX + 15, catY - 7, 6, 0, Math.PI * 2);
       ctx.fill();
-      // Nose
-      ctx.fillStyle = '#f7c8b3';
+      // Highlight
+      ctx.fillStyle = '#fff';
       ctx.beginPath();
-      ctx.ellipse(catX, catY + 12, 8, 5, 0, 0, Math.PI * 2);
+      ctx.ellipse(catX - 12, catY - 7, 1.6, 2, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+      // Right eye
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(catX + 10, catY - 3, 5.5, 7, 0.08, 0, Math.PI * 2);
+      ctx.fillStyle = '#333';
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(catX + 8, catY - 7, 1.6, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Nose (small pink triangle)
+      ctx.save();
+      ctx.fillStyle = "#f7c8b3";
+      ctx.beginPath();
+      ctx.moveTo(catX, catY + 4);
+      ctx.lineTo(catX - 4, catY + 9);
+      ctx.lineTo(catX + 4, catY + 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Smile (arc)
+      ctx.save();
+      ctx.strokeStyle = "#a86a3d";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(catX, catY + 13, 8, Math.PI * 0.15, Math.PI * 0.85, false);
+      ctx.stroke();
+      ctx.restore();
+
+      // Whiskers (do not affect collision)
+      ctx.save();
+      ctx.strokeStyle = "#888";
+      ctx.lineWidth = 1.6;
+      // Left whiskers
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(catX - 5, catY + 5 + i * 4);
+        ctx.lineTo(catX - 30, catY + 4 + i * 9);
+        ctx.stroke();
+      }
+      // Right whiskers
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(catX + 5, catY + 5 + i * 4);
+        ctx.lineTo(catX + 30, catY + 4 + i * 9);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
   },
 ];
 let unlockedFaces = [0];
 let selectedFace = 0;
 
-const catX = 90;
 let catY = canvas.height / 2;
 let catVY = 0;
 let gravity = 0.7;
 let jumpPower = -10;
 let gameStarted = false;
 let inSelectionMode = unlockedFaces.length > 1;
-const catRadiusX = 35;
-const catRadiusY = 30;
 
 // Obstacle properties and game difficulty
 let broomWidth = 60;
-let baseBroomGap = 260;
-let minBroomGap = 120;
+let baseBroomGap = 320;      // Wider gap
+let minBroomGap = 190;       // Wider minimum gap
 let broomGap = baseBroomGap;
 let brooms = [];
 let broomTimer = 0;
@@ -128,7 +227,7 @@ function drawSelectionMenu() {
       ctx.strokeStyle = "#0074d9";
       ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.ellipse(x, y, catRadiusX + 8, catRadiusY + 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y, catHeadRadiusX + 10, catHeadRadiusY + earHeight + 10, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
@@ -162,7 +261,6 @@ function resetGame() {
 
 function updateBroomDifficulty() {
   // Smoothly decrease gap and interval, smoothly increase speed with score.
-  // Use a nonlinear (logarithmic) scale for smooth but slowing progression.
   let logScore = Math.log2(1 + score);
 
   broomGap = Math.max(baseBroomGap - (baseBroomGap - minBroomGap) * (logScore / 8), minBroomGap);
@@ -206,7 +304,7 @@ function update() {
     broomTimer++;
     if (broomTimer >= broomInterval) {
       broomTimer = 0;
-      const gapY = 100 + Math.random() * (canvas.height - 200);
+      const gapY = 60 + Math.random() * (canvas.height - 120);
       brooms.push({ x: canvas.width, gapY, gap: broomGap, passed: false });
     }
     for (let broom of brooms) {
@@ -308,7 +406,7 @@ canvas.addEventListener('mousedown', function (e) {
       let y = canvas.height / 2;
       let dx = e.offsetX - x;
       let dy = e.offsetY - y;
-      if (Math.sqrt(dx * dx + dy * dy) < catRadiusX + 16) {
+      if (Math.sqrt(dx * dx + dy * dy) < catHeadRadiusX + earHeight + 14) {
         selectedFace = i;
         triggerFlap();
         return;
