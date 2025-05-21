@@ -13,7 +13,6 @@ body {
   background: #e8f0fe;
   box-shadow: 0 0 10px #888;
   display: block;
-  /* Make canvas scale smaller on mobile screens */
   max-width: 98vw;
   max-height: 98vh;
   width: 100%;
