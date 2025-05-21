@@ -6,53 +6,48 @@ const catFaces = [
   {
     name: "Classic",
     draw: (catX, catY) => {
-      // Cat face
       ctx.fillStyle = '#fff';
       ctx.beginPath();
       ctx.ellipse(catX, catY, catRadiusX, catRadiusY, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Eyes
       ctx.fillStyle = '#333';
       ctx.beginPath();
       ctx.arc(catX - 15, catY - 7, 6, 0, Math.PI * 2);
       ctx.arc(catX + 15, catY - 7, 6, 0, Math.PI * 2);
       ctx.fill();
-      // Nose
       ctx.fillStyle = '#f7c8b3';
       ctx.beginPath();
       ctx.ellipse(catX, catY + 12, 8, 5, 0, 0, Math.PI * 2);
       ctx.fill();
     }
   },
-  // Future faces can be added here
 ];
-let unlockedFaces = [0]; // Indexes of unlocked faces
+let unlockedFaces = [0];
 let selectedFace = 0;
 
-// Cat properties
 const catX = 90;
 let catY = canvas.height / 2;
 let catVY = 0;
 let gravity = 0.7;
 let jumpPower = -10;
 let gameStarted = false;
-let inSelectionMode = true; // Show face select before game
-
+let inSelectionMode = unlockedFaces.length > 1;
 const catRadiusX = 35;
 const catRadiusY = 30;
 
-// Obstacle properties (will adjust with score)
+// Obstacle properties and game difficulty
 let broomWidth = 60;
-let baseBroomGap = 220; // Start wide
-let minBroomGap = 110; // Tightest
+let baseBroomGap = 260;      // Much wider gap!
+let minBroomGap = 120;       // Still achievable
 let broomGap = baseBroomGap;
 let brooms = [];
 let broomTimer = 0;
-let broomInterval = 90; // Frames between brooms
-let broomSpeed = 3;
-let maxBroomSpeed = 8;
+let baseBroomInterval = 120; // Longer interval for early levels
+let minBroomInterval = 80;
+let broomInterval = baseBroomInterval;
+let broomSpeed = 2.5;        // Slower start
+let maxBroomSpeed = 6;       // Top speed is reasonable
 
-// Game state
 let gameOver = false;
 let score = 0;
 
@@ -65,9 +60,7 @@ function drawCatFace() {
 function drawBrooms() {
   ctx.fillStyle = "#c28d60";
   for (let broom of brooms) {
-    // Top broom
     ctx.fillRect(broom.x, 0, broomWidth, broom.gapY - broom.gap / 2);
-    // Bottom broom
     ctx.fillRect(broom.x, broom.gapY + broom.gap / 2, broomWidth, canvas.height - (broom.gapY + broom.gap / 2));
   }
 }
@@ -79,14 +72,40 @@ function drawScore() {
   ctx.fillText(`Score: ${score}`, 20, 50);
 }
 
+function wrapText(text, x, y, maxWidth, lineHeight, maxLines, font, color, align="center") {
+  ctx.save();
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  let words = text.split(' ');
+  let line = '';
+  let lines = [];
+  for (let n = 0; n < words.length; n++) {
+    let testLine = line + words[n] + ' ';
+    let metrics = ctx.measureText(testLine);
+    let testWidth = metrics.width;
+    if (testWidth > maxWidth && n > 0) {
+      lines.push(line);
+      line = words[n] + ' ';
+      if (lines.length === maxLines - 1) break;
+    } else {
+      line = testLine;
+    }
+  }
+  lines.push(line);
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], x, y + i * lineHeight);
+  }
+  ctx.restore();
+}
+
 function drawSelectionMenu() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#333";
-  ctx.font = "bold 36px Arial";
+  ctx.font = "bold 32px Arial";
   ctx.textAlign = "center";
   ctx.fillText("Choose Your Cat Face", canvas.width / 2, 100);
 
-  // Draw unlocked faces
   for (let i = 0; i < unlockedFaces.length; i++) {
     let x = canvas.width / 2 + (i - (unlockedFaces.length - 1) / 2) * 150;
     let y = canvas.height / 2;
@@ -102,10 +121,16 @@ function drawSelectionMenu() {
       ctx.stroke();
     }
   }
-
-  ctx.fillStyle = "#333";
-  ctx.font = "28px Arial";
-  ctx.fillText("Use ←/→ or click to select, Enter/Space to confirm", canvas.width / 2, canvas.height - 80);
+  wrapText(
+    "Use ←/→ or click to select, Enter/Space to confirm",
+    canvas.width / 2,
+    canvas.height - 80,
+    canvas.width - 60,
+    28,
+    3,
+    "28px Arial",
+    "#333"
+  );
 }
 
 // --- Game logic ---
@@ -113,23 +138,26 @@ function drawSelectionMenu() {
 function resetGame() {
   catY = canvas.height / 2;
   catVY = 0;
-  // Dynamic broom settings
   broomGap = baseBroomGap;
-  broomSpeed = 3;
+  broomSpeed = 2.5;
+  broomInterval = baseBroomInterval;
   brooms = [];
   broomTimer = 0;
   score = 0;
   gameOver = false;
   gameStarted = false;
-  inSelectionMode = unlockedFaces.length > 1; // If more than 1 face, show selection
+  inSelectionMode = unlockedFaces.length > 1;
 }
 
 function updateBroomDifficulty() {
-  // Gradually decrease gap and increase speed, up to min/max
-  // e.g., every 5 points, adjust a little, up to score 25
-  let level = Math.min(score, 25);
-  broomGap = baseBroomGap - ((baseBroomGap - minBroomGap) * level / 25);
-  broomSpeed = 3 + ((maxBroomSpeed - 3) * level / 25);
+  // Gradually decrease gap every 20 levels, increase speed every 30, adjust interval every 25
+  let gapLevel = Math.floor(score / 20);
+  let speedLevel = Math.floor(score / 30);
+  let intervalLevel = Math.floor(score / 25);
+
+  broomGap = Math.max(baseBroomGap - 30 * gapLevel, minBroomGap);
+  broomSpeed = Math.min(2.5 + 0.6 * speedLevel, maxBroomSpeed);
+  broomInterval = Math.max(baseBroomInterval - 8 * intervalLevel, minBroomInterval);
 }
 
 function checkCollision() {
@@ -137,7 +165,6 @@ function checkCollision() {
     if (
       catX + catRadiusX > broom.x && catX - catRadiusX < broom.x + broomWidth
     ) {
-      // Check vertical collision (outside gap)
       if (
         catY - catRadiusY < broom.gapY - broom.gap / 2 ||
         catY + catRadiusY > broom.gapY + broom.gap / 2
@@ -146,7 +173,6 @@ function checkCollision() {
       }
     }
   }
-  // Only bottom out-of-bounds is game over
   if (catY > canvas.height - catRadiusY) {
     return true;
   }
@@ -173,20 +199,15 @@ function update() {
       const gapY = 100 + Math.random() * (canvas.height - 200);
       brooms.push({ x: canvas.width, gapY, gap: broomGap, passed: false });
     }
-    // Move and draw brooms
     for (let broom of brooms) {
       broom.x -= broomSpeed;
     }
-    // Remove offscreen brooms
     brooms = brooms.filter(broom => broom.x + broomWidth > 0);
 
-    // Update score
     for (let broom of brooms) {
       if (!broom.passed && broom.x + broomWidth < catX - catRadiusX) {
         broom.passed = true;
         score++;
-        // Example unlock logic: unlock second face at 10 points (if you have more faces)
-        // if (score === 10 && !unlockedFaces.includes(1)) unlockedFaces.push(1);
       }
     }
 
@@ -197,11 +218,20 @@ function update() {
     }
   } else if (gameOver) {
     ctx.fillStyle = "#d32f2f";
-    ctx.font = "bold 48px Arial";
+    ctx.font = "bold 34px Arial";
     ctx.textAlign = "center";
-    ctx.fillText("Game Over!", canvas.width / 2, canvas.height / 2 - 20);
-    ctx.font = "32px Arial";
-    ctx.fillText("Press SPACE/ENTER/CLICK to restart", canvas.width / 2, canvas.height / 2 + 40);
+    ctx.fillText("Game Over!", canvas.width / 2, canvas.height / 2 - 32);
+
+    wrapText(
+      "Press SPACE, ENTER, or CLICK to restart",
+      canvas.width / 2,
+      canvas.height / 2 + 20,
+      canvas.width - 60,
+      28,
+      3,
+      "24px Arial",
+      "#d32f2f"
+    );
     drawBrooms();
   }
 
@@ -209,10 +239,16 @@ function update() {
   drawScore();
 
   if (!gameStarted && !gameOver && !inSelectionMode) {
-    ctx.fillStyle = '#333';
-    ctx.font = 'bold 32px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('Press SPACE/ENTER/CLICK to start', canvas.width / 2, canvas.height / 2 + 100);
+    wrapText(
+      "Press SPACE, ENTER, or CLICK to start",
+      canvas.width / 2,
+      canvas.height / 2 + 100,
+      canvas.width - 60,
+      26,
+      3,
+      "22px Arial",
+      "#333"
+    );
   }
 
   requestAnimationFrame(update);
@@ -222,7 +258,6 @@ function update() {
 
 function triggerFlap() {
   if (inSelectionMode) {
-    // Confirm face selection
     inSelectionMode = false;
     gameStarted = false;
     return;
@@ -239,13 +274,11 @@ function triggerFlap() {
   }
 }
 
-// Handle face selection navigation
 function selectFace(direction) {
   if (unlockedFaces.length <= 1) return;
   selectedFace = (selectedFace + direction + unlockedFaces.length) % unlockedFaces.length;
 }
 
-// Keyboard controls
 document.addEventListener('keydown', function (e) {
   if (inSelectionMode) {
     if (e.code === 'ArrowLeft') selectFace(-1);
@@ -258,10 +291,8 @@ document.addEventListener('keydown', function (e) {
   }
 });
 
-// Mouse controls
 canvas.addEventListener('mousedown', function (e) {
   if (inSelectionMode) {
-    // Detect face click
     for (let i = 0; i < unlockedFaces.length; i++) {
       let x = canvas.width / 2 + (i - (unlockedFaces.length - 1) / 2) * 150;
       let y = canvas.height / 2;
@@ -273,7 +304,6 @@ canvas.addEventListener('mousedown', function (e) {
         return;
       }
     }
-    // Otherwise, cycle to next face
     selectFace(1);
   } else {
     triggerFlap();
