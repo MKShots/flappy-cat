@@ -2,7 +2,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // --- CONFIG ---
-const ASPECT_W = 3, ASPECT_H = 4; // Portrait aspect ratio (e.g., 450x600)
+const ASPECT_W = 3, ASPECT_H = 4; // Portrait aspect ratio
 const BASE_W = 360, BASE_H = 480; // Reference for scaling
 
 // Game variables (to be set in resizeCanvas)
@@ -10,7 +10,7 @@ let width, height, scale;
 
 // Cat geometry (will be set in resizeCanvas)
 let catX, catY, catRadiusX, catRadiusY, earHeight, earWidth, eyeRX, eyeRY, noseSize, mouthW, mouthH;
-let catHitboxY, catHitboxR;
+let catHitboxY, catHitboxRX, catHitboxRY;
 let groundY, ceilingY, broomWidth, broomGap, broomMinGap, broomBaseGap, broomSpeed, broomBaseSpeed;
 let brooms, broomTimer, broomInterval, broomBaseInterval, minBroomInterval;
 let gravity, jumpPower;
@@ -32,40 +32,44 @@ function resizeCanvas() {
   canvas.height = height;
   scale = width / BASE_W;
 
-  // Cat geometry: SMALLER, OVAL head, all features proportional
+  // Cat geometry: SMALLER, HORIZONTALLY OVAL head, all features proportional
   catX = Math.round(width * 0.22);
-  catRadiusX = Math.round(28 * scale); // width of head (smaller!)
-  catRadiusY = Math.round(34 * scale); // height of head (oval)
-  earHeight = Math.round(18 * scale);  // short, up-pointing
-  earWidth = Math.round(16 * scale);   // narrow base
+  catRadiusX = Math.round(19 * scale); // width of head (much smaller!)
+  catRadiusY = Math.round(14 * scale); // height of head (flatter oval)
+  earHeight = Math.round(12 * scale);  // small, up-pointing
+  earWidth = Math.round(10 * scale);   // narrow base
 
   catY = height / 2;
-  // Hitbox: match the original pre-ear-adjustment size (just the oval head, no ears)
+  // Hitbox: just the oval head, no ears, and small as requested
   catHitboxY = catY;
-  catHitboxR = Math.max(catRadiusX, catRadiusY);
+  catHitboxRX = catRadiusX;
+  catHitboxRY = catRadiusY;
 
-  eyeRX = Math.round(6.5 * scale); // oval eyes
-  eyeRY = Math.round(8.2 * scale);
-  noseSize = Math.round(6 * scale); // triangle side
-  mouthW = Math.round(10 * scale);
-  mouthH = Math.round(6 * scale);
+  eyeRX = Math.round(catRadiusX * 0.5); // half the circle size, oval
+  eyeRY = Math.round(catRadiusY * 0.55);
+
+  noseSize = Math.round(4.5 * scale); // triangle side
+  mouthW = Math.round(7 * scale);
+  mouthH = Math.round(3 * scale);
 
   groundY = height - Math.round(25 * scale);
   ceilingY = Math.round(25 * scale);
 
-  broomWidth = Math.round(44 * scale);
-  broomBaseGap = Math.round(3.1 * catHitboxR); // wide gap
-  broomMinGap = Math.round(2.2 * catHitboxR); // still wide
+  broomWidth = Math.round(38 * scale);
+
+  // --- Brooms: much easier early, slow gradual progression ---
+  broomBaseGap = Math.round(5 * catRadiusY); // VERY large gap early on
+  broomMinGap = Math.round(2.2 * catRadiusY); // Still wide even at hardest
   broomGap = broomBaseGap;
 
-  broomBaseSpeed = 2.0 * scale;
+  broomBaseSpeed = 1.5 * scale; // slow start
   broomSpeed = broomBaseSpeed;
-  broomBaseInterval = Math.round(120 * scale);
-  minBroomInterval = Math.round(70 * scale);
+  broomBaseInterval = Math.round(140 * scale); // fewer brooms early
+  minBroomInterval = Math.round(80 * scale);
   broomInterval = broomBaseInterval;
 
-  gravity = 0.54 * scale;
-  jumpPower = -7 * scale;
+  gravity = 0.45 * scale;
+  jumpPower = -5 * scale;
 
   // If brooms already exist, adjust their positions proportionally
   if (brooms) {
@@ -77,48 +81,48 @@ function resizeCanvas() {
 
 // --- Cat face drawing with all adjustments ---
 function drawCatFace(x, y) {
-  // Ears (start further from center, more up, shorter, smaller)
+  // Ears: farther out, more up, less pink, more black border
   ctx.save();
-  ctx.lineWidth = 2.1 * scale;
+  ctx.lineWidth = 1.7 * scale;
   ctx.strokeStyle = "#111";
   ctx.fillStyle = "#fff";
   // Left ear outer
   ctx.beginPath();
-  ctx.moveTo(x - catRadiusX * 0.85, y - catRadiusY * 0.68); // base left
-  ctx.lineTo(x - catRadiusX * 0.97, y - catRadiusY * 0.68 - earHeight); // tip, up
-  ctx.lineTo(x - catRadiusX * 0.58, y - catRadiusY * 0.82); // base right
+  ctx.moveTo(x - catRadiusX * 0.98, y - catRadiusY * 0.65);
+  ctx.lineTo(x - catRadiusX * 1.12, y - catRadiusY * 0.65 - earHeight);
+  ctx.lineTo(x - catRadiusX * 0.60, y - catRadiusY * 0.77);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
   // Right ear outer
   ctx.beginPath();
-  ctx.moveTo(x + catRadiusX * 0.85, y - catRadiusY * 0.68);
-  ctx.lineTo(x + catRadiusX * 0.97, y - catRadiusY * 0.68 - earHeight);
-  ctx.lineTo(x + catRadiusX * 0.58, y - catRadiusY * 0.82);
+  ctx.moveTo(x + catRadiusX * 0.98, y - catRadiusY * 0.65);
+  ctx.lineTo(x + catRadiusX * 1.12, y - catRadiusY * 0.65 - earHeight);
+  ctx.lineTo(x + catRadiusX * 0.60, y - catRadiusY * 0.77);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-  // Ears (inner pink triangles, fully inside outer, equivalent triangles)
+  // Ears (inner pink triangles, small pink, more border)
   ctx.fillStyle = "#f7c8b3";
   // Left inner
   ctx.beginPath();
-  ctx.moveTo(x - catRadiusX * 0.84, y - catRadiusY * 0.70); // base left
-  ctx.lineTo(x - catRadiusX * 0.95, y - catRadiusY * 0.68 - earHeight + earHeight*0.18); // tip, up
-  ctx.lineTo(x - catRadiusX * 0.62, y - catRadiusY * 0.81); // base right
+  ctx.moveTo(x - catRadiusX * 0.96, y - catRadiusY * 0.67);
+  ctx.lineTo(x - catRadiusX * 1.10, y - catRadiusY * 0.65 - earHeight + earHeight*0.42);
+  ctx.lineTo(x - catRadiusX * 0.65, y - catRadiusY * 0.76);
   ctx.closePath();
   ctx.fill();
   // Right inner
   ctx.beginPath();
-  ctx.moveTo(x + catRadiusX * 0.84, y - catRadiusY * 0.70);
-  ctx.lineTo(x + catRadiusX * 0.95, y - catRadiusY * 0.68 - earHeight + earHeight*0.18);
-  ctx.lineTo(x + catRadiusX * 0.62, y - catRadiusY * 0.81);
+  ctx.moveTo(x + catRadiusX * 0.96, y - catRadiusY * 0.67);
+  ctx.lineTo(x + catRadiusX * 1.10, y - catRadiusY * 0.65 - earHeight + earHeight*0.42);
+  ctx.lineTo(x + catRadiusX * 0.65, y - catRadiusY * 0.76);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 
-  // Head (oval)
+  // Head: horizontally oval, small
   ctx.save();
-  ctx.lineWidth = 2.1 * scale;
+  ctx.lineWidth = 1.7 * scale;
   ctx.strokeStyle = "#111";
   ctx.fillStyle = "#fff";
   ctx.beginPath();
@@ -127,20 +131,20 @@ function drawCatFace(x, y) {
   ctx.stroke();
   ctx.restore();
 
-  // Eyes: smaller, oval, higher on face, black only, no white
+  // Eyes: smaller, oval, higher, black only
   ctx.save();
   ctx.fillStyle = "#111";
   // Left eye
   ctx.beginPath();
   ctx.ellipse(
-    x - catRadiusX * 0.34, y - catRadiusY * 0.30, // higher up
+    x - catRadiusX * 0.44, y - catRadiusY * 0.24, // higher up, oval
     eyeRX, eyeRY, 0, 0, Math.PI * 2
   );
   ctx.fill();
   // Right eye
   ctx.beginPath();
   ctx.ellipse(
-    x + catRadiusX * 0.34, y - catRadiusY * 0.30,
+    x + catRadiusX * 0.44, y - catRadiusY * 0.24,
     eyeRX, eyeRY, 0, 0, Math.PI * 2
   );
   ctx.fill();
@@ -148,10 +152,10 @@ function drawCatFace(x, y) {
 
   // Nose: triangle, further down, with black border
   ctx.save();
-  ctx.lineWidth = 1.1 * scale;
+  ctx.lineWidth = 0.9 * scale;
   ctx.strokeStyle = "#111";
   ctx.fillStyle = "#f7c8b3";
-  let noseY = y + catRadiusY * 0.10;
+  let noseY = y + catRadiusY * 0.01;
   ctx.beginPath();
   ctx.moveTo(x, noseY);
   ctx.lineTo(x - noseSize/2, noseY + noseSize * 0.75);
@@ -161,38 +165,39 @@ function drawCatFace(x, y) {
   ctx.stroke();
   ctx.restore();
 
-  // Whiskers: further down, relative to new nose position
+  // Whiskers: very close together, at midline, starting at nose
   ctx.save();
   ctx.strokeStyle = "#111";
-  ctx.lineWidth = 1.1 * scale;
-  let whiskerY = noseY + noseSize * 0.65;
+  ctx.lineWidth = 0.9 * scale;
+  let whiskerY = noseY + noseSize * 0.7;
+  let whiskerGap = scale * 2; // very close together
   for (let i = -1; i <= 1; i++) {
     ctx.beginPath();
-    ctx.moveTo(x - catRadiusX * 0.18, whiskerY + i*scale*6);
-    ctx.lineTo(x - catRadiusX * 0.67, whiskerY + i*scale*11);
+    ctx.moveTo(x - noseSize * 0.1, whiskerY + i*whiskerGap);
+    ctx.lineTo(x - catRadiusX * 0.7, whiskerY + i*whiskerGap);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(x + catRadiusX * 0.18, whiskerY + i*scale*6);
-    ctx.lineTo(x + catRadiusX * 0.67, whiskerY + i*scale*11);
+    ctx.moveTo(x + noseSize * 0.1, whiskerY + i*whiskerGap);
+    ctx.lineTo(x + catRadiusX * 0.7, whiskerY + i*whiskerGap);
     ctx.stroke();
   }
   ctx.restore();
 
-  // Mouth: even further down
+  // Mouth: a little below whiskers
   ctx.save();
   ctx.strokeStyle = "#111";
-  ctx.lineWidth = 1.4 * scale;
-  let mouthY = whiskerY + catRadiusY * 0.18;
+  ctx.lineWidth = 1.1 * scale;
+  let mouthY = whiskerY + catRadiusY * 0.23;
   ctx.beginPath();
   ctx.moveTo(x - mouthW/2, mouthY);
   ctx.bezierCurveTo(
-    x - mouthW/2 + mouthW*0.20, mouthY + mouthH*0.25,
-    x - mouthW*0.1, mouthY + mouthH*0.38,
+    x - mouthW/2 + mouthW*0.18, mouthY + mouthH*0.25,
+    x - mouthW*0.1, mouthY + mouthH*0.45,
     x, mouthY + mouthH*0.11
   );
   ctx.bezierCurveTo(
-    x + mouthW*0.1, mouthY + mouthH*0.38,
-    x + mouthW/2 - mouthW*0.2, mouthY + mouthH*0.25,
+    x + mouthW*0.1, mouthY + mouthH*0.45,
+    x + mouthW/2 - mouthW*0.18, mouthY + mouthH*0.25,
     x + mouthW/2, mouthY
   );
   ctx.stroke();
@@ -204,16 +209,14 @@ function catHitbox() {
   return {
     x: catX,
     y: catHitboxY,
-    rx: catRadiusX,
-    ry: catRadiusY
+    rx: catHitboxRX,
+    ry: catHitboxRY
   };
 }
 function checkCollision() {
   let hit = catHitbox();
   for (let broom of brooms) {
     if (hit.x + hit.rx > broom.x && hit.x - hit.rx < broom.x + broomWidth) {
-      // Oval-rect collision: check if any point on the rectangle edge is within the oval
-      // We'll just check if cat's top or bottom is in the broom
       if (
         hit.y - hit.ry < broom.gapY - broom.gap/2 ||
         hit.y + hit.ry > broom.gapY + broom.gap/2
@@ -229,9 +232,9 @@ function checkCollision() {
 // --- Drawing functions (score, UI, etc) ---
 function drawScore() {
   ctx.fillStyle = "#333";
-  ctx.font = `${Math.round(28 * scale)}px Arial`;
+  ctx.font = `${Math.round(22 * scale)}px Arial`;
   ctx.textAlign = "left";
-  ctx.fillText(`Score: ${score}`, 20 * scale, 44 * scale);
+  ctx.fillText(`Score: ${score}`, 14 * scale, 30 * scale);
 }
 function wrapText(text, x, y, maxWidth, lineHeight, maxLines, font, color, align="center") {
   ctx.save();
@@ -286,9 +289,18 @@ function resetGame() {
 }
 function updateBroomDifficulty() {
   let logScore = Math.log2(1 + score);
-  broomGap = Math.max(broomBaseGap - (broomBaseGap - broomMinGap) * (logScore / 8), broomMinGap);
-  broomSpeed = Math.min(broomBaseSpeed + (2.1 * scale) * (logScore / 10), broomBaseSpeed + 2.1 * scale);
-  broomInterval = Math.max(broomBaseInterval - (broomBaseInterval - minBroomInterval) * (logScore / 10), minBroomInterval);
+  // Level 50 should still be easy: gap shrinks very slowly and only after level 50 does it start to approach min
+  if (score <= 50) {
+    broomGap = broomBaseGap;
+    broomSpeed = broomBaseSpeed;
+    broomInterval = broomBaseInterval;
+  } else {
+    // After level 50, very slow linear progression
+    let prog = Math.min((score - 50) / 50, 1); // 0 to 1 as score goes from 50 to 100
+    broomGap = broomBaseGap - (broomBaseGap - broomMinGap) * prog;
+    broomSpeed = broomBaseSpeed + (2 * scale) * prog;
+    broomInterval = broomBaseInterval - (broomBaseInterval - minBroomInterval) * prog;
+  }
 }
 function update() {
   ctx.clearRect(0, 0, width, height);
@@ -318,7 +330,7 @@ function update() {
     if (checkCollision()) gameOver = true;
   } else if (gameOver) {
     ctx.fillStyle = "#d32f2f";
-    ctx.font = `bold ${Math.round(28*scale)}px Arial`;
+    ctx.font = `bold ${Math.round(18*scale)}px Arial`;
     ctx.textAlign = "center";
     ctx.fillText("Game Over!", width / 2, height / 2 - 32 * scale);
     wrapText(
@@ -326,9 +338,9 @@ function update() {
       width / 2,
       height / 2 + 20 * scale,
       width - 60 * scale,
-      24 * scale,
+      18 * scale,
       3,
-      `${Math.round(17*scale)}px Arial`,
+      `${Math.round(13*scale)}px Arial`,
       "#d32f2f"
     );
     drawBrooms();
@@ -340,11 +352,11 @@ function update() {
     wrapText(
       "Press SPACE, ENTER, or TAP to start",
       width / 2,
-      height / 2 + 80 * scale,
+      height / 2 + 60 * scale,
       width - 60 * scale,
-      22 * scale,
+      13 * scale,
       3,
-      `${Math.round(15*scale)}px Arial`,
+      `${Math.round(11*scale)}px Arial`,
       "#333"
     );
   }
