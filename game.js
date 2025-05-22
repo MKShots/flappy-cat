@@ -1,4 +1,4 @@
-// --- Flappy Cat Game: No Hitbox Borders, Popup is Top Right, Face Only, Transparent ---
+// --- Flappy Cat Game: No Hitbox Borders, Popup is Top Right, Face Only, Transparent, Shorter Start Text ---
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -373,16 +373,14 @@ function update(dt = 1/60) {
   if (!gameStarted && !gameOver) {
     drawTitle();
     drawCatFace(catX, catY, selectedFace, 1);
-    wrapText(
-      "Press SPACE, ENTER, or TAP to start",
-      width / 2,
-      height / 2 + 110 * scale,
-      width - 60 * scale,
-      22 * scale,
-      3,
-      `${Math.round(17*scale)}px Arial`,
-      "#333"
-    );
+    // Shorter intro text with line break after "To Start:"
+    ctx.save();
+    ctx.font = `${Math.round(17*scale)}px Arial`;
+    ctx.fillStyle = "#333";
+    ctx.textAlign = "center";
+    ctx.fillText("To Start:", width/2, height/2 + 110 * scale);
+    ctx.fillText("Tap / Space Bar", width/2, height/2 + 134 * scale);
+    ctx.restore();
     drawScore();
     drawFaceSelector();
     requestAnimationFrame(() => update(1/60));
