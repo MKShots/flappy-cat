@@ -1,4 +1,4 @@
-// --- Flappy Cat Game: Title, Easier Difficulty, First Broom at Start, Button Restart Only ---
+// --- Flappy Cat Game: Improved Title & Button Style, UI Draw Order Fixes ---
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -169,39 +169,95 @@ function drawGround() {
   ctx.fillRect(0, groundY, width, height-groundY);
 }
 
-// --- Title text on start screen ---
+// --- Fancy 3D Title text on start screen ---
 function drawTitle() {
+  // Lower the title and make it fancier and more distinct
+  const titleY = 128 * scale;
+  const fontSize = Math.round(46 * scale);
   ctx.save();
-  ctx.font = `bold ${Math.round(38*scale)}px Arial`;
-  ctx.fillStyle = "#3a3a3a";
+  ctx.font = `bold ${fontSize}px Arial Black, Arial, sans-serif`;
   ctx.textAlign = "center";
-  ctx.shadowColor = "#fff";
-  ctx.shadowBlur = 8 * scale;
-  ctx.fillText("Flappy Cat", width/2, 68*scale);
+  ctx.textBaseline = "top";
+
+  // 3D shadow effect
+  for (let i = 7; i > 0; i--) {
+    ctx.fillStyle = `rgba(80,0,0,${0.12 + i*0.04})`;
+    ctx.fillText("Flappy Cat", width/2 + i, titleY + i);
+  }
+  // Main gradient text
+  let grad = ctx.createLinearGradient(width/2 - 80*scale, titleY, width/2 + 80*scale, titleY + fontSize);
+  grad.addColorStop(0, "#990000");
+  grad.addColorStop(0.4, "#c1272d");
+  grad.addColorStop(0.6, "#ed1c24");
+  grad.addColorStop(1, "#ff6767");
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 3 * scale;
+  ctx.strokeText("Flappy Cat", width/2, titleY);
+  ctx.fillText("Flappy Cat", width/2, titleY);
+
+  // Gloss highlight
+  ctx.globalAlpha = 0.2;
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.ellipse(width/2, titleY + fontSize*0.45, fontSize*1.2, fontSize*0.32, 0, Math.PI*0.1, Math.PI*0.9, false);
+  ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
-// --- Try Again Button ---
+// --- Fancy Try Again Button ---
 function drawTryAgainBtn() {
-  let btnW = 170 * scale, btnH = 52 * scale;
+  let btnW = 200 * scale, btnH = 60 * scale;
   let btnX = width/2 - btnW/2;
-  let btnY = height/2 + 35 * scale;
-  // Save for click detection
+  let btnY = height/2 + 55 * scale;
   tryAgainBtn = {x: btnX, y: btnY, w: btnW, h: btnH};
-  // Draw button
+
+  // Blue gradient, glowing, 'bouncy' text
   ctx.save();
-  ctx.fillStyle = "#f9f9f9";
-  ctx.strokeStyle = "#a777c9";
-  ctx.lineWidth = 3 * scale;
+  // Shadow/glow
+  ctx.shadowColor = "#1faaff";
+  ctx.shadowBlur = 22 * scale;
+
+  // Button base
+  let grad = ctx.createLinearGradient(btnX, btnY, btnX, btnY+btnH);
+  grad.addColorStop(0, "#3ecbff");
+  grad.addColorStop(0.5, "#1faaff");
+  grad.addColorStop(1, "#005c99");
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 3.5 * scale;
+
   ctx.beginPath();
-  ctx.roundRect(btnX, btnY, btnW, btnH, 12 * scale);
+  ctx.roundRect(btnX, btnY, btnW, btnH, 18 * scale);
   ctx.fill();
   ctx.stroke();
-  ctx.font = `bold ${Math.round(26*scale)}px Arial`;
-  ctx.fillStyle = "#a777c9";
+
+  ctx.shadowBlur = 0;
+  // Button text with white highlight and blue shadow
+  ctx.font = `bold ${Math.round(32*scale)}px Arial Black, Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("Try again", width/2, btnY + btnH/2 + 2*scale);
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2*scale;
+  ctx.strokeText("Try again!", width/2, btnY + btnH/2 + 2*scale);
+  ctx.fillStyle = "#0a3876";
+  ctx.shadowColor = "#3ecbff";
+  ctx.shadowBlur = 8 * scale;
+  ctx.fillText("Try again!", width/2, btnY + btnH/2 + 2*scale);
+
+  // Confetti sparkle (little dots)
+  for(let i=0; i<12; ++i) {
+    ctx.save();
+    ctx.globalAlpha = 0.2 + Math.random()*0.5;
+    ctx.fillStyle = "#fff";
+    let angle = Math.random()*2*Math.PI;
+    let r = btnW*0.43 + Math.random()*btnW*0.08;
+    ctx.beginPath();
+    ctx.arc(width/2 + Math.cos(angle)*r, btnY + btnH/2 + Math.sin(angle)*btnH*0.45, 3*scale, 0, 2*Math.PI);
+    ctx.fill();
+    ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -250,11 +306,11 @@ function update() {
     wrapText(
       "Press SPACE, ENTER, or TAP to start",
       width / 2,
-      height / 2 + 80 * scale,
+      height / 2 + 110 * scale,
       width - 60 * scale,
       22 * scale,
       3,
-      `${Math.round(15*scale)}px Arial`,
+      `${Math.round(17*scale)}px Arial`,
       "#333"
     );
     drawScore();
@@ -283,26 +339,30 @@ function update() {
       }
     }
     drawBrooms();
-    if (checkCollision()) gameOver = true;
-  }
+    drawCatFace(catX, catY);
+    drawScore();
+  } else if (gameOver) {
+    // Draw brooms and cat first (background)
+    drawBrooms();
+    drawCatFace(catX, catY);
 
-  if (gameOver) {
-    ctx.fillStyle = "#d32f2f";
-    ctx.font = `bold ${Math.round(28*scale)}px Arial`;
+    // Draw Game Over UI (always on top)
+    ctx.save();
+    // Game Over shadow
+    ctx.shadowColor = "#f44336";
+    ctx.shadowBlur = 18 * scale;
+    ctx.font = `bold ${Math.round(38*scale)}px Arial Black, Arial, sans-serif`;
     ctx.textAlign = "center";
-    ctx.fillText("Game Over!", width / 2, height / 2 - 32 * scale);
-
-    ctx.font = `${Math.round(22*scale)}px Arial`;
-    ctx.fillStyle = "#333";
-    ctx.fillText(`Score: ${score}`, width / 2, height / 2 + 6 * scale);
+    ctx.fillStyle = "#ba0e19";
+    ctx.fillText("Game Over!", width / 2, height / 2 - 48 * scale);
+    ctx.shadowBlur = 0;
+    ctx.font = `bold ${Math.round(28*scale)}px Arial Black, Arial, sans-serif`;
+    ctx.fillStyle = "#222";
+    ctx.fillText(`Score: ${score}`, width / 2, height / 2 - 10 * scale);
+    ctx.restore();
 
     drawTryAgainBtn();
-    drawBrooms();
   }
-
-  drawCatFace(catX, catY);
-
-  if (gameStarted && !gameOver) drawScore();
 
   requestAnimationFrame(update);
 }
