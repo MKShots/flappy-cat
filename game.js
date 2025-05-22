@@ -1,4 +1,4 @@
-// --- Flappy Cat Game: Improved Unlock Logic, Persistent Selector, Refined Popup ---
+// --- Flappy Cat Game: Refined Popup (top right, face only, no border/background), Thinner Hitbox Border ---
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -111,15 +111,17 @@ function resizeCanvas() {
 }
 
 // --- Draw Cat Face PNG, fit to hitbox, with thin border ---
-function drawCatFace(x, y, faceIdx = selectedFace, opacity = 1) {
+// borderThickness: default is 1, for main game; set to 0 for notification (popup)
+function drawCatFace(x, y, faceIdx = selectedFace, opacity = 1, borderThickness = 1) {
   ctx.save();
   ctx.globalAlpha = opacity;
-  ctx.strokeStyle = "#111";
-  ctx.lineWidth = 1.2 * scale;
-  ctx.beginPath();
-  ctx.ellipse(x, y, catHitboxRX, catHitboxRY, 0, 0, Math.PI * 2);
-  ctx.stroke();
-
+  if (borderThickness > 0) {
+    ctx.strokeStyle = "#111";
+    ctx.lineWidth = borderThickness;
+    ctx.beginPath();
+    ctx.ellipse(x, y, catHitboxRX, catHitboxRY, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   let img = catImages[faceIdx];
   if (img.complete && img.naturalWidth > 0) {
     ctx.drawImage(
@@ -299,34 +301,34 @@ function drawFaceSelector() {
     let cy = y + selectorH / 2;
     ctx.save();
     ctx.globalAlpha = (selectedFace === i) ? 1 : 0.6;
-    ctx.lineWidth = (selectedFace === i) ? 4 * scale : 2 * scale;
+    ctx.lineWidth = (selectedFace === i) ? 2 * scale : 1 * scale;
     ctx.strokeStyle = (selectedFace === i) ? "#1faaff" : "#ccc";
     ctx.beginPath();
     ctx.ellipse(cx, cy, faceW/2-3*scale, faceW/2-3*scale, 0, 0, Math.PI*2);
     ctx.stroke();
-    drawCatFace(cx, cy, i, 1);
+    drawCatFace(cx, cy, i, 1, 0); // Draw face only, no border in selector
     ctx.restore();
     x0 += faceW + facePad;
   }
   ctx.restore();
 }
 
-// --- Unlock Popup (top left, no text, more opaque) ---
+// --- Unlock Popup (top right, face only, slightly transparent, no border/background) ---
 function drawUnlockPopup() {
   if (unlockPopup.show) {
     const imgIdx = unlockPopup.faceIdx;
     const popupW = catHitboxRX * 2.1;
     const popupH = catHitboxRY * 2.1;
-    const x = 18 * scale;
+    const x = width - popupW - 24 * scale;
     const y = 18 * scale;
-    ctx.save();
-    ctx.globalAlpha = 0.92;
-    ctx.beginPath();
-    ctx.ellipse(x + popupW/2, y + popupH/2, popupW/2 + 8*scale, popupH/2 + 8*scale, 0, 0, Math.PI*2);
-    ctx.fillStyle = "#fff";
-    ctx.fill();
-    drawCatFace(x + popupW/2, y + popupH/2, imgIdx, 1);
-    ctx.restore();
+    // Draw only the cat face, no border, no background, higher transparency
+    drawCatFace(
+      x + popupW/2,
+      y + popupH/2,
+      imgIdx,
+      0.7, // slightly transparent
+      0 // no border
+    );
   }
 }
 
@@ -343,7 +345,6 @@ function resetGame() {
   gameOver = false;
   gameStarted = false;
   tryAgainBtn = null;
-  // Re-initialize unlockedFaces from persistent session data
   initUnlockedFaces();
 }
 
@@ -379,7 +380,7 @@ function update(dt = 1/60) {
 
   if (!gameStarted && !gameOver) {
     drawTitle();
-    drawCatFace(catX, catY);
+    drawCatFace(catX, catY, selectedFace, 1, scale); // thinner hitbox border
     wrapText(
       "Press SPACE, ENTER, or TAP to start",
       width / 2,
@@ -416,7 +417,6 @@ function update(dt = 1/60) {
         broom.passed = true;
         score++;
         // Unlock logic: cat_face_1 is default, then cat_face_2 at 10, cat_face_3 at 20, ..., cat_face_19 at 180
-        // So idx = Math.floor(score/10), but only if in range and not yet unlocked
         if (score % 10 === 0 && score / 10 < CAT_FACE_PATHS.length && score > 0) {
           unlockFace(score / 10);
         }
@@ -429,7 +429,7 @@ function update(dt = 1/60) {
 
   // --- Draw world ---
   drawBrooms();
-  drawCatFace(catX, catY);
+  drawCatFace(catX, catY, selectedFace, 1, scale); // thinner hitbox border
 
   // --- UI (drawn last, always on top) ---
   if (gameStarted && !gameOver) {
@@ -613,7 +613,6 @@ window.addEventListener('resize', () => {
 catImages[0].onload = function() {
   update();
 };
-// On load: initialize unlocked faces from session
 initUnlockedFaces();
 resizeCanvas();
 resetGame();
