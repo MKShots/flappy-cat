@@ -1,4 +1,4 @@
-// --- Flappy Cat Game with PNG Cat Faces & Generous Hitbox/Broom Gaps (Inspired by v11) ---
+// --- Flappy Cat Game with PNG Cat Faces, Generous Hitbox/Broom Gaps, and Visual Hitbox ---
 // Place your cat face PNGs in assets/cat_faces/ and list them below.
 
 const canvas = document.getElementById('gameCanvas');
@@ -30,7 +30,6 @@ let gravity, jumpPower;
 let gameStarted, gameOver, score, catVY;
 
 // --- Responsive Scaling and Geometry ---
-// Reference: v11 used catRadiusX = 28, catRadiusY = 34, hitbox = max(catRadiusX, catRadiusY) == 34
 function resizeCanvas() {
   // Maintain 3:4 aspect ratio, fill as much of screen as possible
   let ww = window.innerWidth, wh = window.innerHeight;
@@ -57,19 +56,19 @@ function resizeCanvas() {
 
   broomWidth = Math.round(44 * scale);
 
-  // --- Brooms: generous gap (v11: baseBroomGap = 3.1 * hitboxR = 3.1 * 34 = 105.4) ---
-  broomBaseGap = Math.round(3.1 * catHitboxRY); // generous gap
+  // --- Brooms: DOUBLE generous gap (was 3.1 * catHitboxRY, now 6.2 * catHitboxRY) ---
+  broomBaseGap = Math.round(6.2 * catHitboxRY); // very large gap!
   broomMinGap  = Math.round(2.2 * catHitboxRY); // still generous min
   broomGap = broomBaseGap;
 
-  broomBaseSpeed = 1.9 * scale; // not too fast
+  broomBaseSpeed = 1.6 * scale; // slow at first
   broomSpeed = broomBaseSpeed;
-  broomBaseInterval = Math.round(120 * scale); // v11: 120
+  broomBaseInterval = Math.round(120 * scale);
   minBroomInterval = Math.round(70 * scale);
   broomInterval = broomBaseInterval;
 
-  gravity = 0.54 * scale;   // v11: 0.54
-  jumpPower = -7 * scale;   // v11: -7
+  gravity = 0.32 * scale;   // slower fall
+  jumpPower = -13 * scale;  // much stronger jump
 
   // Adjust broom positions if resizing
   if (brooms) {
@@ -79,8 +78,18 @@ function resizeCanvas() {
   }
 }
 
-// --- Draw Cat Face PNG, fit to hitbox ---
+// --- Draw Cat Face PNG, fit to hitbox, with black border for hitbox ---
 function drawCatFace(x, y) {
+  // Draw hitbox border
+  ctx.save();
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = 3 * scale;
+  ctx.beginPath();
+  ctx.ellipse(x, y, catHitboxRX, catHitboxRY, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // Draw cat face PNG centered in hitbox
   let img = catImages[selectedFace];
   if (img.complete && img.naturalWidth > 0) {
     ctx.save();
@@ -91,14 +100,6 @@ function drawCatFace(x, y) {
       catHitboxRX * 2,
       catHitboxRY * 2
     );
-    ctx.restore();
-  } else {
-    ctx.save();
-    ctx.strokeStyle = "#111";
-    ctx.lineWidth = 2 * scale;
-    ctx.beginPath();
-    ctx.ellipse(x, y, catHitboxRX, catHitboxRY, 0, 0, Math.PI * 2);
-    ctx.stroke();
     ctx.restore();
   }
 }
