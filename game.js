@@ -1,4 +1,4 @@
-// --- Flappy Cat Game: Refined Popup (top right, face only, no border/background), Thinner Hitbox Border ---
+// --- Flappy Cat Game: No Hitbox Borders, Popup is Top Right, Face Only, Transparent ---
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -110,18 +110,11 @@ function resizeCanvas() {
   }
 }
 
-// --- Draw Cat Face PNG, fit to hitbox, with thin border ---
-// borderThickness: default is 1, for main game; set to 0 for notification (popup)
-function drawCatFace(x, y, faceIdx = selectedFace, opacity = 1, borderThickness = 1) {
+// --- Draw Cat Face PNG, fit to hitbox, with NO border ---
+function drawCatFace(x, y, faceIdx = selectedFace, opacity = 1) {
   ctx.save();
   ctx.globalAlpha = opacity;
-  if (borderThickness > 0) {
-    ctx.strokeStyle = "#111";
-    ctx.lineWidth = borderThickness;
-    ctx.beginPath();
-    ctx.ellipse(x, y, catHitboxRX, catHitboxRY, 0, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+  // No border at all
   let img = catImages[faceIdx];
   if (img.complete && img.naturalWidth > 0) {
     ctx.drawImage(
@@ -306,7 +299,7 @@ function drawFaceSelector() {
     ctx.beginPath();
     ctx.ellipse(cx, cy, faceW/2-3*scale, faceW/2-3*scale, 0, 0, Math.PI*2);
     ctx.stroke();
-    drawCatFace(cx, cy, i, 1, 0); // Draw face only, no border in selector
+    drawCatFace(cx, cy, i, 1); // Face only, no border
     ctx.restore();
     x0 += faceW + facePad;
   }
@@ -326,8 +319,7 @@ function drawUnlockPopup() {
       x + popupW/2,
       y + popupH/2,
       imgIdx,
-      0.7, // slightly transparent
-      0 // no border
+      0.7 // slightly transparent, no border
     );
   }
 }
@@ -380,7 +372,7 @@ function update(dt = 1/60) {
 
   if (!gameStarted && !gameOver) {
     drawTitle();
-    drawCatFace(catX, catY, selectedFace, 1, scale); // thinner hitbox border
+    drawCatFace(catX, catY, selectedFace, 1);
     wrapText(
       "Press SPACE, ENTER, or TAP to start",
       width / 2,
@@ -429,7 +421,7 @@ function update(dt = 1/60) {
 
   // --- Draw world ---
   drawBrooms();
-  drawCatFace(catX, catY, selectedFace, 1, scale); // thinner hitbox border
+  drawCatFace(catX, catY, selectedFace, 1);
 
   // --- UI (drawn last, always on top) ---
   if (gameStarted && !gameOver) {
