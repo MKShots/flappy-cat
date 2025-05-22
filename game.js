@@ -1,5 +1,5 @@
-// --- Flappy Cat Game with PNG Cat Faces & Big Broom Gaps ---
-// Place all your cat face PNGs in assets/cat_faces/ and list them below.
+// --- Flappy Cat Game with PNG Cat Faces & Generous Hitbox/Broom Gaps (Inspired by v11) ---
+// Place your cat face PNGs in assets/cat_faces/ and list them below.
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -7,10 +7,9 @@ const ctx = canvas.getContext('2d');
 // --- Cat Faces ---
 const CAT_FACE_PATHS = [
   "assets/cat_faces/cat_face_1.png", // starter face
-  // Add more faces here as you unlock them
-  // "assets/cat_faces/cat_face_2.png",
+  // Add more faces here for unlockables
 ];
-let unlockedFaces = [true]; // Start with only first face unlocked
+let unlockedFaces = [true];
 let selectedFace = 0;
 let catImages = CAT_FACE_PATHS.map(path => {
   let img = new Image();
@@ -31,6 +30,7 @@ let gravity, jumpPower;
 let gameStarted, gameOver, score, catVY;
 
 // --- Responsive Scaling and Geometry ---
+// Reference: v11 used catRadiusX = 28, catRadiusY = 34, hitbox = max(catRadiusX, catRadiusY) == 34
 function resizeCanvas() {
   // Maintain 3:4 aspect ratio, fill as much of screen as possible
   let ww = window.innerWidth, wh = window.innerHeight;
@@ -46,32 +46,32 @@ function resizeCanvas() {
   canvas.height = height;
   scale = width / BASE_W;
 
-  // Cat settings: small and forgiving hitbox
+  // Cat: generous hitbox, similar to v11
   catX = Math.round(width * 0.22);
   catY = height / 2;
-  catHitboxRX = Math.round(16 * scale); // width of hitbox
-  catHitboxRY = Math.round(12 * scale); // height of hitbox
+  catHitboxRX = Math.round(28 * scale); // horizontal radius (v11)
+  catHitboxRY = Math.round(34 * scale); // vertical radius (v11, used for hitbox and gap)
 
   groundY = height - Math.round(25 * scale);
   ceilingY = Math.round(25 * scale);
 
-  broomWidth = Math.round(38 * scale);
+  broomWidth = Math.round(44 * scale);
 
-  // --- Brooms: Huge gap early, slow progression ---
-  broomBaseGap = Math.round(12 * catHitboxRY); // HUGE gap at start (e.g. 144px if catHitboxRY=12)
-  broomMinGap = Math.round(3.5 * catHitboxRY); // Never gets too tight
+  // --- Brooms: generous gap (v11: baseBroomGap = 3.1 * hitboxR = 3.1 * 34 = 105.4) ---
+  broomBaseGap = Math.round(3.1 * catHitboxRY); // generous gap
+  broomMinGap  = Math.round(2.2 * catHitboxRY); // still generous min
   broomGap = broomBaseGap;
 
-  broomBaseSpeed = 1.0 * scale; // Very slow at first
+  broomBaseSpeed = 1.9 * scale; // not too fast
   broomSpeed = broomBaseSpeed;
-  broomBaseInterval = Math.round(170 * scale); // Few brooms early
-  minBroomInterval = Math.round(110 * scale);
+  broomBaseInterval = Math.round(120 * scale); // v11: 120
+  minBroomInterval = Math.round(70 * scale);
   broomInterval = broomBaseInterval;
 
-  gravity = 0.37 * scale;
-  jumpPower = -3.8 * scale;
+  gravity = 0.54 * scale;   // v11: 0.54
+  jumpPower = -7 * scale;   // v11: -7
 
-  // If brooms already exist, adjust their positions proportionally
+  // Adjust broom positions if resizing
   if (brooms) {
     for (let broom of brooms) {
       broom.x = Math.round(broom.x * width / BASE_W);
@@ -79,12 +79,11 @@ function resizeCanvas() {
   }
 }
 
-// --- Draw Cat Face PNG, perfectly fitted to hitbox ---
+// --- Draw Cat Face PNG, fit to hitbox ---
 function drawCatFace(x, y) {
   let img = catImages[selectedFace];
   if (img.complete && img.naturalWidth > 0) {
     ctx.save();
-    // Draw the PNG centered at (x, y), scaled to the oval hitbox
     ctx.drawImage(
       img,
       x - catHitboxRX,
@@ -94,7 +93,6 @@ function drawCatFace(x, y) {
     );
     ctx.restore();
   } else {
-    // fallback: draw a placeholder oval
     ctx.save();
     ctx.strokeStyle = "#111";
     ctx.lineWidth = 2 * scale;
@@ -105,7 +103,7 @@ function drawCatFace(x, y) {
   }
 }
 
-// --- Cat Hitbox (oval) for collision ---
+// --- Cat Hitbox (oval) ---
 function catHitbox() {
   return {
     x: catX,
@@ -135,9 +133,9 @@ function checkCollision() {
 // --- Drawing functions ---
 function drawScore() {
   ctx.fillStyle = "#333";
-  ctx.font = `${Math.round(22 * scale)}px Arial`;
+  ctx.font = `${Math.round(28 * scale)}px Arial`;
   ctx.textAlign = "left";
-  ctx.fillText(`Score: ${score}`, 14 * scale, 30 * scale);
+  ctx.fillText(`Score: ${score}`, 20 * scale, 44 * scale);
 }
 function wrapText(text, x, y, maxWidth, lineHeight, maxLines, font, color, align="center") {
   ctx.save();
@@ -197,10 +195,9 @@ function updateBroomDifficulty() {
     broomSpeed = broomBaseSpeed;
     broomInterval = broomBaseInterval;
   } else {
-    // After 50, gradually shrink gap and increase speed
-    let prog = Math.min((score - 50) / 120, 1); // 0 to 1 as score goes from 50 to 170
+    let prog = Math.min((score - 50) / 100, 1);
     broomGap = broomBaseGap - (broomBaseGap - broomMinGap) * prog;
-    broomSpeed = broomBaseSpeed + (2.2 * scale) * prog;
+    broomSpeed = broomBaseSpeed + (1.5 * scale) * prog;
     broomInterval = broomBaseInterval - (broomBaseInterval - minBroomInterval) * prog;
   }
 }
@@ -232,7 +229,7 @@ function update() {
     if (checkCollision()) gameOver = true;
   } else if (gameOver) {
     ctx.fillStyle = "#d32f2f";
-    ctx.font = `bold ${Math.round(18*scale)}px Arial`;
+    ctx.font = `bold ${Math.round(28*scale)}px Arial`;
     ctx.textAlign = "center";
     ctx.fillText("Game Over!", width / 2, height / 2 - 32 * scale);
     wrapText(
@@ -240,9 +237,9 @@ function update() {
       width / 2,
       height / 2 + 20 * scale,
       width - 60 * scale,
-      18 * scale,
+      24 * scale,
       3,
-      `${Math.round(13*scale)}px Arial`,
+      `${Math.round(17*scale)}px Arial`,
       "#d32f2f"
     );
     drawBrooms();
@@ -254,11 +251,11 @@ function update() {
     wrapText(
       "Press SPACE, ENTER, or TAP to start",
       width / 2,
-      height / 2 + 60 * scale,
+      height / 2 + 80 * scale,
       width - 60 * scale,
-      13 * scale,
+      22 * scale,
       3,
-      `${Math.round(11*scale)}px Arial`,
+      `${Math.round(15*scale)}px Arial`,
       "#333"
     );
   }
