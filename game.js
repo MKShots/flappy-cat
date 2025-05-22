@@ -1,4 +1,4 @@
-// --- Flappy Cat Game: Improved Title & Button Style, UI Draw Order Fixes ---
+// --- Flappy Cat Game: Improved Title & Button Style, UI Draw Order Fixes, Simpler Button & Return to Start ---
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -210,58 +210,42 @@ function drawTitle() {
   ctx.restore();
 }
 
-// --- Fancy Try Again Button ---
+// --- Simpler Try Again Button ---
 function drawTryAgainBtn() {
-  let btnW = 200 * scale, btnH = 60 * scale;
+  let btnW = 150 * scale, btnH = 45 * scale; // 0.75x previous size
   let btnX = width/2 - btnW/2;
-  let btnY = height/2 + 55 * scale;
+  let btnY = height/2 + 65 * scale;
   tryAgainBtn = {x: btnX, y: btnY, w: btnW, h: btnH};
 
-  // Blue gradient, glowing, 'bouncy' text
   ctx.save();
-  // Shadow/glow
+  // Blue gradient, soft shadow, rounded rectangle
   ctx.shadowColor = "#1faaff";
-  ctx.shadowBlur = 22 * scale;
+  ctx.shadowBlur = 12 * scale;
 
-  // Button base
   let grad = ctx.createLinearGradient(btnX, btnY, btnX, btnY+btnH);
-  grad.addColorStop(0, "#3ecbff");
-  grad.addColorStop(0.5, "#1faaff");
-  grad.addColorStop(1, "#005c99");
+  grad.addColorStop(0, "#4ecbff");
+  grad.addColorStop(0.7, "#1faaff");
+  grad.addColorStop(1, "#267cc1");
   ctx.fillStyle = grad;
   ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 3.5 * scale;
+  ctx.lineWidth = 2 * scale;
 
   ctx.beginPath();
-  ctx.roundRect(btnX, btnY, btnW, btnH, 18 * scale);
+  ctx.roundRect(btnX, btnY, btnW, btnH, 14 * scale);
   ctx.fill();
   ctx.stroke();
 
   ctx.shadowBlur = 0;
-  // Button text with white highlight and blue shadow
-  ctx.font = `bold ${Math.round(32*scale)}px Arial Black, Arial, sans-serif`;
+  // Button text, bold and blue
+  ctx.font = `bold ${Math.round(22*scale)}px Arial Black, Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 2*scale;
-  ctx.strokeText("Try again!", width/2, btnY + btnH/2 + 2*scale);
-  ctx.fillStyle = "#0a3876";
-  ctx.shadowColor = "#3ecbff";
-  ctx.shadowBlur = 8 * scale;
-  ctx.fillText("Try again!", width/2, btnY + btnH/2 + 2*scale);
+  ctx.lineWidth = 1.3*scale;
+  ctx.strokeText("Try again", width/2, btnY + btnH/2);
+  ctx.fillStyle = "#124a89";
+  ctx.fillText("Try again", width/2, btnY + btnH/2);
 
-  // Confetti sparkle (little dots)
-  for(let i=0; i<12; ++i) {
-    ctx.save();
-    ctx.globalAlpha = 0.2 + Math.random()*0.5;
-    ctx.fillStyle = "#fff";
-    let angle = Math.random()*2*Math.PI;
-    let r = btnW*0.43 + Math.random()*btnW*0.08;
-    ctx.beginPath();
-    ctx.arc(width/2 + Math.cos(angle)*r, btnY + btnH/2 + Math.sin(angle)*btnH*0.45, 3*scale, 0, 2*Math.PI);
-    ctx.fill();
-    ctx.restore();
-  }
   ctx.restore();
 }
 
@@ -387,7 +371,7 @@ function triggerFlap() {
   }
 }
 
-// Only allow restart via button
+// Only allow restart via button, and after button: return to start screen, not start game immediately
 function handleRestartBtnClick(mx, my) {
   if (tryAgainBtn) {
     if (
@@ -397,7 +381,7 @@ function handleRestartBtnClick(mx, my) {
       my <= tryAgainBtn.y + tryAgainBtn.h
     ) {
       resetGame();
-      startGame();
+      // Do not call startGame(); return to start screen instead
     }
   }
 }
