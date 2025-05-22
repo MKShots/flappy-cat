@@ -68,7 +68,7 @@ function resizeCanvas() {
   broomInterval = broomBaseInterval;
 
   gravity = 0.2 * scale;   // slower fall
-  jumpPower = -2 * scale;  // much stronger jump
+  jumpPower = -5 * scale;  // much stronger jump
 
   // Adjust broom positions if resizing
   if (brooms) {
