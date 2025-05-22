@@ -110,6 +110,7 @@ function catHitbox() {
 
 function checkCollision() {
   let hit = catHitbox();
+  // Collision with brooms
   for (let broom of brooms) {
     if (hit.x + hit.rx > broom.x && hit.x - hit.rx < broom.x + broomWidth) {
       if (
@@ -120,7 +121,10 @@ function checkCollision() {
       }
     }
   }
+  // Collision with ground
   if (catY + catHitboxRY > groundY) return true;
+  // Collision with ceiling (optional; add if you want)
+  // if (catY - catHitboxRY < ceilingY) return true;
   return false;
 }
 
@@ -318,6 +322,7 @@ function update() {
     return;
   }
 
+  // --- Physics & Gameplay ---
   if (gameStarted && !gameOver) {
     catVY += gravity;
     catY += catVY;
@@ -338,17 +343,22 @@ function update() {
         score++;
       }
     }
-    drawBrooms();
-    drawCatFace(catX, catY);
+    // --- Collision detection ---
+    if (checkCollision()) {
+      gameOver = true;
+    }
+  }
+
+  // --- Draw world ---
+  drawBrooms();
+  drawCatFace(catX, catY);
+
+  // --- UI (drawn last, always on top) ---
+  if (gameStarted && !gameOver) {
     drawScore();
   } else if (gameOver) {
-    // Draw brooms and cat first (background)
-    drawBrooms();
-    drawCatFace(catX, catY);
-
     // Draw Game Over UI (always on top)
     ctx.save();
-    // Game Over shadow
     ctx.shadowColor = "#f44336";
     ctx.shadowBlur = 18 * scale;
     ctx.font = `bold ${Math.round(38*scale)}px Arial Black, Arial, sans-serif`;
