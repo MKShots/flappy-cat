@@ -1,13 +1,11 @@
-// --- Flappy Cat Game with PNG Cat Faces, Thinner Hitbox Border, and Custom Gap Progression ---
-// Place your cat face PNGs in assets/cat_faces/ and list them below.
+// --- Flappy Cat Game: Title, Easier Difficulty, First Broom at Start, Button Restart Only ---
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// --- Cat Faces ---
 const CAT_FACE_PATHS = [
-  "assets/cat_faces/cat_face_1.png", // starter face
-  // Add more faces here for unlockables
+  "assets/cat_faces/cat_face_1.png",
+  // Add more faces here
 ];
 let unlockedFaces = [true];
 let selectedFace = 0;
@@ -21,17 +19,15 @@ let catImages = CAT_FACE_PATHS.map(path => {
 const ASPECT_W = 3, ASPECT_H = 4;
 const BASE_W = 360, BASE_H = 480;
 
-// Geometry
 let width, height, scale;
 let catX, catY, catHitboxRX, catHitboxRY;
 let groundY, ceilingY, broomWidth, broomGap, broomBaseGap, broomMinGap, maxBroomGap, minBroomGap, broomSpeed, broomBaseSpeed;
 let brooms, broomTimer, broomInterval, broomBaseInterval, minBroomInterval;
 let gravity, jumpPower;
 let gameStarted, gameOver, score, catVY;
+let tryAgainBtn = null; // For restart button
 
-// --- Responsive Scaling and Geometry ---
 function resizeCanvas() {
-  // Maintain 3:4 aspect ratio, fill as much of screen as possible
   let ww = window.innerWidth, wh = window.innerHeight;
   let ar = ASPECT_W / ASPECT_H;
   if (ww / wh > ar) {
@@ -45,34 +41,33 @@ function resizeCanvas() {
   canvas.height = height;
   scale = width / BASE_W;
 
-  // Cat: generous hitbox, similar to v11
   catX = Math.round(width * 0.22);
   catY = height / 2;
-  catHitboxRX = Math.round(28 * scale); // horizontal radius (v11)
-  catHitboxRY = Math.round(34 * scale); // vertical radius (v11)
+  catHitboxRX = Math.round(28 * scale);
+  catHitboxRY = Math.round(34 * scale);
 
   groundY = height - Math.round(25 * scale);
   ceilingY = Math.round(25 * scale);
 
   broomWidth = Math.round(44 * scale);
 
-  // --- Brooms: Custom progression from 6.2*catHitboxRY to 1.5*catHitboxRY by level 300 ---
-  maxBroomGap = 6.2 * catHitboxRY;
+  // --- Broom gap progression remains unchanged, but easier difficulty settings below ---
+  maxBroomGap = 7 * catHitboxRY;
   minBroomGap = 1.5 * catHitboxRY;
   broomBaseGap = maxBroomGap;
   broomMinGap = minBroomGap;
   broomGap = broomBaseGap;
 
-  broomBaseSpeed = 1.6 * scale; // slow at first
+  // Easier difficulty: slower broom speed, fewer brooms, gentler gravity/jump
+  broomBaseSpeed = 1.2 * scale; // slower!
   broomSpeed = broomBaseSpeed;
-  broomBaseInterval = Math.round(120 * scale);
-  minBroomInterval = Math.round(70 * scale);
+  broomBaseInterval = Math.round(170 * scale); // fewer brooms
+  minBroomInterval = Math.round(120 * scale);
   broomInterval = broomBaseInterval;
 
-  gravity = 0.2 * scale;   // more appropriate fall
-  jumpPower = -5 * scale;  // better jump
+  gravity = 0.13 * scale;   // much gentler fall
+  jumpPower = -4.2 * scale;  // gentle, but enough lift
 
-  // Adjust broom positions if resizing
   if (brooms) {
     for (let broom of brooms) {
       broom.x = Math.round(broom.x * width / BASE_W);
@@ -80,9 +75,8 @@ function resizeCanvas() {
   }
 }
 
-// --- Draw Cat Face PNG, fit to hitbox, with thinner black border for hitbox ---
+// --- Draw Cat Face PNG, fit to hitbox, with thin border ---
 function drawCatFace(x, y) {
-  // Draw hitbox border (thinner)
   ctx.save();
   ctx.strokeStyle = "#111";
   ctx.lineWidth = 1.2 * scale;
@@ -91,7 +85,6 @@ function drawCatFace(x, y) {
   ctx.stroke();
   ctx.restore();
 
-  // Draw cat face PNG centered in hitbox
   let img = catImages[selectedFace];
   if (img.complete && img.naturalWidth > 0) {
     ctx.save();
@@ -106,7 +99,6 @@ function drawCatFace(x, y) {
   }
 }
 
-// --- Cat Hitbox (oval) ---
 function catHitbox() {
   return {
     x: catX,
@@ -116,7 +108,6 @@ function catHitbox() {
   };
 }
 
-// --- Collision ---
 function checkCollision() {
   let hit = catHitbox();
   for (let broom of brooms) {
@@ -178,6 +169,42 @@ function drawGround() {
   ctx.fillRect(0, groundY, width, height-groundY);
 }
 
+// --- Title text on start screen ---
+function drawTitle() {
+  ctx.save();
+  ctx.font = `bold ${Math.round(38*scale)}px Arial`;
+  ctx.fillStyle = "#3a3a3a";
+  ctx.textAlign = "center";
+  ctx.shadowColor = "#fff";
+  ctx.shadowBlur = 8 * scale;
+  ctx.fillText("Flappy Cat", width/2, 68*scale);
+  ctx.restore();
+}
+
+// --- Try Again Button ---
+function drawTryAgainBtn() {
+  let btnW = 170 * scale, btnH = 52 * scale;
+  let btnX = width/2 - btnW/2;
+  let btnY = height/2 + 35 * scale;
+  // Save for click detection
+  tryAgainBtn = {x: btnX, y: btnY, w: btnW, h: btnH};
+  // Draw button
+  ctx.save();
+  ctx.fillStyle = "#f9f9f9";
+  ctx.strokeStyle = "#a777c9";
+  ctx.lineWidth = 3 * scale;
+  ctx.beginPath();
+  ctx.roundRect(btnX, btnY, btnW, btnH, 12 * scale);
+  ctx.fill();
+  ctx.stroke();
+  ctx.font = `bold ${Math.round(26*scale)}px Arial`;
+  ctx.fillStyle = "#a777c9";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Try again", width/2, btnY + btnH/2 + 2*scale);
+  ctx.restore();
+}
+
 // --- Game logic ---
 function resetGame() {
   catY = height / 2;
@@ -190,20 +217,50 @@ function resetGame() {
   score = 0;
   gameOver = false;
   gameStarted = false;
+  tryAgainBtn = null;
 }
+
 function updateBroomDifficulty() {
   // Gap shrinks linearly from maxBroomGap to minBroomGap by level 300
   let level = score + 1;
-  let t = Math.min(level, 300) / 300; // 0 (start) -> 1 (level 300)
+  let t = Math.min(level, 300) / 300;
   broomGap = maxBroomGap - (maxBroomGap - minBroomGap) * t;
-  // Optionally, speed and interval can also increase but not required to match the gap
-  // Uncomment and adjust if you want progression:
-  // broomSpeed = broomBaseSpeed + (1.5 * scale) * t;
-  // broomInterval = broomBaseInterval - (broomBaseInterval - minBroomInterval) * t;
 }
+
+function startGame() {
+  // Place first broom at the right edge, then delay next broom as usual
+  brooms = [];
+  broomTimer = 0;
+  const gapY = ceilingY + broomGap/2 + Math.random() * (groundY - ceilingY - broomGap);
+  brooms.push({ x: width, gapY, gap: broomGap, passed: false });
+  gameStarted = true;
+  gameOver = false;
+  score = 0;
+  catY = height / 2;
+  catVY = 0;
+}
+
 function update() {
   ctx.clearRect(0, 0, width, height);
   drawGround();
+
+  if (!gameStarted && !gameOver) {
+    drawTitle();
+    drawCatFace(catX, catY);
+    wrapText(
+      "Press SPACE, ENTER, or TAP to start",
+      width / 2,
+      height / 2 + 80 * scale,
+      width - 60 * scale,
+      22 * scale,
+      3,
+      `${Math.round(15*scale)}px Arial`,
+      "#333"
+    );
+    drawScore();
+    requestAnimationFrame(update);
+    return;
+  }
 
   if (gameStarted && !gameOver) {
     catVY += gravity;
@@ -227,67 +284,91 @@ function update() {
     }
     drawBrooms();
     if (checkCollision()) gameOver = true;
-  } else if (gameOver) {
+  }
+
+  if (gameOver) {
     ctx.fillStyle = "#d32f2f";
     ctx.font = `bold ${Math.round(28*scale)}px Arial`;
     ctx.textAlign = "center";
     ctx.fillText("Game Over!", width / 2, height / 2 - 32 * scale);
-    wrapText(
-      "Press SPACE, ENTER, or TAP to restart",
-      width / 2,
-      height / 2 + 20 * scale,
-      width - 60 * scale,
-      24 * scale,
-      3,
-      `${Math.round(17*scale)}px Arial`,
-      "#d32f2f"
-    );
+
+    ctx.font = `${Math.round(22*scale)}px Arial`;
+    ctx.fillStyle = "#333";
+    ctx.fillText(`Score: ${score}`, width / 2, height / 2 + 6 * scale);
+
+    drawTryAgainBtn();
     drawBrooms();
   }
 
   drawCatFace(catX, catY);
-  drawScore();
-  if (!gameStarted && !gameOver) {
-    wrapText(
-      "Press SPACE, ENTER, or TAP to start",
-      width / 2,
-      height / 2 + 80 * scale,
-      width - 60 * scale,
-      22 * scale,
-      3,
-      `${Math.round(15*scale)}px Arial`,
-      "#333"
-    );
-  }
+
+  if (gameStarted && !gameOver) drawScore();
+
   requestAnimationFrame(update);
 }
 
 // --- Controls ---
 function triggerFlap() {
-  if (!gameStarted) {
-    resetGame();
-    gameStarted = true;
+  if (!gameStarted && !gameOver) {
+    startGame();
   }
-  if (!gameOver) {
+  if (gameStarted && !gameOver) {
     catVY = jumpPower;
-  } else {
-    resetGame();
-    gameStarted = true;
   }
 }
+
+// Only allow restart via button
+function handleRestartBtnClick(mx, my) {
+  if (tryAgainBtn) {
+    if (
+      mx >= tryAgainBtn.x &&
+      mx <= tryAgainBtn.x + tryAgainBtn.w &&
+      my >= tryAgainBtn.y &&
+      my <= tryAgainBtn.y + tryAgainBtn.h
+    ) {
+      resetGame();
+      startGame();
+    }
+  }
+}
+
 document.addEventListener('keydown', function (e) {
-  if (e.code === 'Space' || e.code === 'Enter') {
+  if (!gameStarted && !gameOver && (e.code === 'Space' || e.code === 'Enter')) {
     e.preventDefault();
     triggerFlap();
   }
+  if (gameStarted && !gameOver && (e.code === 'Space' || e.code === 'Enter')) {
+    e.preventDefault();
+    triggerFlap();
+  }
+  // Do NOT allow restart with space/enter if game over
 });
+
 canvas.addEventListener('mousedown', function (e) {
-  e.preventDefault();
-  triggerFlap();
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  if (!gameStarted && !gameOver) {
+    triggerFlap();
+  } else if (gameOver) {
+    handleRestartBtnClick(mx, my);
+  } else if (gameStarted && !gameOver) {
+    triggerFlap();
+  }
 });
 canvas.addEventListener('touchstart', function (e) {
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
+  if (!gameStarted && !gameOver) {
+    triggerFlap();
+  } else if (gameOver) {
+    handleRestartBtnClick(mx, my);
+  } else if (gameStarted && !gameOver) {
+    triggerFlap();
+  }
   e.preventDefault();
-  triggerFlap();
 });
 canvas.addEventListener('touchmove', function(e) {
   e.preventDefault();
