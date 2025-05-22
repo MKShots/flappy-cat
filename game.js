@@ -1,4 +1,4 @@
-// --- Flappy Cat Game with PNG Cat Faces, Generous Hitbox/Broom Gaps, and Visual Hitbox ---
+// --- Flappy Cat Game with PNG Cat Faces, Thinner Hitbox Border, and Custom Gap Progression ---
 // Place your cat face PNGs in assets/cat_faces/ and list them below.
 
 const canvas = document.getElementById('gameCanvas');
@@ -24,7 +24,7 @@ const BASE_W = 360, BASE_H = 480;
 // Geometry
 let width, height, scale;
 let catX, catY, catHitboxRX, catHitboxRY;
-let groundY, ceilingY, broomWidth, broomGap, broomMinGap, broomBaseGap, broomSpeed, broomBaseSpeed;
+let groundY, ceilingY, broomWidth, broomGap, broomBaseGap, broomMinGap, maxBroomGap, minBroomGap, broomSpeed, broomBaseSpeed;
 let brooms, broomTimer, broomInterval, broomBaseInterval, minBroomInterval;
 let gravity, jumpPower;
 let gameStarted, gameOver, score, catVY;
@@ -49,16 +49,18 @@ function resizeCanvas() {
   catX = Math.round(width * 0.22);
   catY = height / 2;
   catHitboxRX = Math.round(28 * scale); // horizontal radius (v11)
-  catHitboxRY = Math.round(34 * scale); // vertical radius (v11, used for hitbox and gap)
+  catHitboxRY = Math.round(34 * scale); // vertical radius (v11)
 
   groundY = height - Math.round(25 * scale);
   ceilingY = Math.round(25 * scale);
 
   broomWidth = Math.round(44 * scale);
 
-  // --- Brooms: DOUBLE generous gap (was 3.1 * catHitboxRY, now 6.2 * catHitboxRY) ---
-  broomBaseGap = Math.round(6.2 * catHitboxRY); // very large gap!
-  broomMinGap  = Math.round(2.2 * catHitboxRY); // still generous min
+  // --- Brooms: Custom progression from 6.2*catHitboxRY to 1.5*catHitboxRY by level 300 ---
+  maxBroomGap = 6.2 * catHitboxRY;
+  minBroomGap = 1.5 * catHitboxRY;
+  broomBaseGap = maxBroomGap;
+  broomMinGap = minBroomGap;
   broomGap = broomBaseGap;
 
   broomBaseSpeed = 1.6 * scale; // slow at first
@@ -67,8 +69,8 @@ function resizeCanvas() {
   minBroomInterval = Math.round(70 * scale);
   broomInterval = broomBaseInterval;
 
-  gravity = 0.2 * scale;   // slower fall
-  jumpPower = -5 * scale;  // much stronger jump
+  gravity = 0.2 * scale;   // more appropriate fall
+  jumpPower = -5 * scale;  // better jump
 
   // Adjust broom positions if resizing
   if (brooms) {
@@ -78,12 +80,12 @@ function resizeCanvas() {
   }
 }
 
-// --- Draw Cat Face PNG, fit to hitbox, with black border for hitbox ---
+// --- Draw Cat Face PNG, fit to hitbox, with thinner black border for hitbox ---
 function drawCatFace(x, y) {
-  // Draw hitbox border
+  // Draw hitbox border (thinner)
   ctx.save();
   ctx.strokeStyle = "#111";
-  ctx.lineWidth = 3 * scale;
+  ctx.lineWidth = 1.2 * scale;
   ctx.beginPath();
   ctx.ellipse(x, y, catHitboxRX, catHitboxRY, 0, 0, Math.PI * 2);
   ctx.stroke();
@@ -190,17 +192,14 @@ function resetGame() {
   gameStarted = false;
 }
 function updateBroomDifficulty() {
-  // Easy until level 50, then slow progression
-  if (score <= 50) {
-    broomGap = broomBaseGap;
-    broomSpeed = broomBaseSpeed;
-    broomInterval = broomBaseInterval;
-  } else {
-    let prog = Math.min((score - 50) / 100, 1);
-    broomGap = broomBaseGap - (broomBaseGap - broomMinGap) * prog;
-    broomSpeed = broomBaseSpeed + (1.5 * scale) * prog;
-    broomInterval = broomBaseInterval - (broomBaseInterval - minBroomInterval) * prog;
-  }
+  // Gap shrinks linearly from maxBroomGap to minBroomGap by level 300
+  let level = score + 1;
+  let t = Math.min(level, 300) / 300; // 0 (start) -> 1 (level 300)
+  broomGap = maxBroomGap - (maxBroomGap - minBroomGap) * t;
+  // Optionally, speed and interval can also increase but not required to match the gap
+  // Uncomment and adjust if you want progression:
+  // broomSpeed = broomBaseSpeed + (1.5 * scale) * t;
+  // broomInterval = broomBaseInterval - (broomBaseInterval - minBroomInterval) * t;
 }
 function update() {
   ctx.clearRect(0, 0, width, height);
