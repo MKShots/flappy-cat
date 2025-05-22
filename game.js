@@ -1,13 +1,14 @@
-// --- Flappy Cat Game: Improved Title & Button Style, UI Draw Order Fixes, Simpler Button & Return to Start ---
+// --- Flappy Cat Game: Correct Unlock Logic, Popup, and Selector ---
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const CAT_FACE_PATHS = [
-  "assets/cat_faces/cat_face_1.png",
-  // Add more faces here
-];
-let unlockedFaces = [true];
+// --- Cat Faces ---
+const CAT_FACE_PATHS = [];
+for (let i = 1; i <= 19; i++) {
+  CAT_FACE_PATHS.push(`assets/cat_faces/cat_face_${i}.png`);
+}
+let unlockedFaces = [];
 let selectedFace = 0;
 let catImages = CAT_FACE_PATHS.map(path => {
   let img = new Image();
@@ -26,6 +27,29 @@ let brooms, broomTimer, broomInterval, broomBaseInterval, minBroomInterval;
 let gravity, jumpPower;
 let gameStarted, gameOver, score, catVY;
 let tryAgainBtn = null; // For restart button
+
+// --- Unlock popup state ---
+let unlockPopup = {
+  show: false,
+  faceIdx: 0,
+  timer: 0
+};
+
+// --- Selector state ---
+let selectorScrollX = 0; // Horizontal scroll for selector
+let selectorDragging = false;
+let selectorDragStartX = 0;
+let selectorScrollStart = 0;
+
+// --- Unlock face when reaching the correct score threshold ---
+function unlockFace(idx) {
+  if (!unlockedFaces[idx]) {
+    unlockedFaces[idx] = true;
+    unlockPopup.show = true;
+    unlockPopup.faceIdx = idx;
+    unlockPopup.timer = 3.0; // show for 3 seconds
+  }
+}
 
 function resizeCanvas() {
   let ww = window.innerWidth, wh = window.innerHeight;
@@ -51,22 +75,20 @@ function resizeCanvas() {
 
   broomWidth = Math.round(44 * scale);
 
-  // --- Broom gap progression remains unchanged, but easier difficulty settings below ---
   maxBroomGap = 7 * catHitboxRY;
   minBroomGap = 1.5 * catHitboxRY;
   broomBaseGap = maxBroomGap;
   broomMinGap = minBroomGap;
   broomGap = broomBaseGap;
 
-  // Easier difficulty: slower broom speed, fewer brooms, gentler gravity/jump
-  broomBaseSpeed = 1.2 * scale; // slower!
+  broomBaseSpeed = 1.2 * scale;
   broomSpeed = broomBaseSpeed;
-  broomBaseInterval = Math.round(170 * scale); // fewer brooms
+  broomBaseInterval = Math.round(170 * scale);
   minBroomInterval = Math.round(120 * scale);
   broomInterval = broomBaseInterval;
 
-  gravity = 0.13 * scale;   // much gentler fall
-  jumpPower = -4.2 * scale;  // gentle, but enough lift
+  gravity = 0.13 * scale;
+  jumpPower = -4.2 * scale;
 
   if (brooms) {
     for (let broom of brooms) {
@@ -76,18 +98,17 @@ function resizeCanvas() {
 }
 
 // --- Draw Cat Face PNG, fit to hitbox, with thin border ---
-function drawCatFace(x, y) {
+function drawCatFace(x, y, faceIdx = selectedFace, opacity = 1) {
   ctx.save();
+  ctx.globalAlpha = opacity;
   ctx.strokeStyle = "#111";
   ctx.lineWidth = 1.2 * scale;
   ctx.beginPath();
   ctx.ellipse(x, y, catHitboxRX, catHitboxRY, 0, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.restore();
 
-  let img = catImages[selectedFace];
+  let img = catImages[faceIdx];
   if (img.complete && img.naturalWidth > 0) {
-    ctx.save();
     ctx.drawImage(
       img,
       x - catHitboxRX,
@@ -95,8 +116,8 @@ function drawCatFace(x, y) {
       catHitboxRX * 2,
       catHitboxRY * 2
     );
-    ctx.restore();
   }
+  ctx.restore();
 }
 
 function catHitbox() {
@@ -110,7 +131,6 @@ function catHitbox() {
 
 function checkCollision() {
   let hit = catHitbox();
-  // Collision with brooms
   for (let broom of brooms) {
     if (hit.x + hit.rx > broom.x && hit.x - hit.rx < broom.x + broomWidth) {
       if (
@@ -121,10 +141,7 @@ function checkCollision() {
       }
     }
   }
-  // Collision with ground
   if (catY + catHitboxRY > groundY) return true;
-  // Collision with ceiling (optional; add if you want)
-  // if (catY - catHitboxRY < ceilingY) return true;
   return false;
 }
 
@@ -175,20 +192,16 @@ function drawGround() {
 
 // --- Fancy 3D Title text on start screen ---
 function drawTitle() {
-  // Lower the title and make it fancier and more distinct
   const titleY = 128 * scale;
   const fontSize = Math.round(46 * scale);
   ctx.save();
   ctx.font = `bold ${fontSize}px Arial Black, Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-
-  // 3D shadow effect
   for (let i = 7; i > 0; i--) {
     ctx.fillStyle = `rgba(80,0,0,${0.12 + i*0.04})`;
     ctx.fillText("Flappy Cat", width/2 + i, titleY + i);
   }
-  // Main gradient text
   let grad = ctx.createLinearGradient(width/2 - 80*scale, titleY, width/2 + 80*scale, titleY + fontSize);
   grad.addColorStop(0, "#990000");
   grad.addColorStop(0.4, "#c1272d");
@@ -200,7 +213,6 @@ function drawTitle() {
   ctx.strokeText("Flappy Cat", width/2, titleY);
   ctx.fillText("Flappy Cat", width/2, titleY);
 
-  // Gloss highlight
   ctx.globalAlpha = 0.2;
   ctx.fillStyle = "#fff";
   ctx.beginPath();
@@ -210,15 +222,13 @@ function drawTitle() {
   ctx.restore();
 }
 
-// --- Simpler Try Again Button ---
 function drawTryAgainBtn() {
-  let btnW = 150 * scale, btnH = 45 * scale; // 0.75x previous size
+  let btnW = 150 * scale, btnH = 45 * scale;
   let btnX = width/2 - btnW/2;
   let btnY = height/2 + 65 * scale;
   tryAgainBtn = {x: btnX, y: btnY, w: btnW, h: btnH};
 
   ctx.save();
-  // Blue gradient, soft shadow, rounded rectangle
   ctx.shadowColor = "#1faaff";
   ctx.shadowBlur = 12 * scale;
 
@@ -236,7 +246,6 @@ function drawTryAgainBtn() {
   ctx.stroke();
 
   ctx.shadowBlur = 0;
-  // Button text, bold and blue
   ctx.font = `bold ${Math.round(22*scale)}px Arial Black, Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -247,6 +256,74 @@ function drawTryAgainBtn() {
   ctx.fillText("Try again", width/2, btnY + btnH/2);
 
   ctx.restore();
+}
+
+// --- Face Selector ---
+function drawFaceSelector() {
+  const selectorH = 68 * scale;
+  const faceW = 62 * scale, facePad = 12 * scale;
+  const totalFaces = unlockedFaces.filter(f=>f).length;
+  const scrollW = totalFaces * (faceW + facePad) + facePad;
+  const y = height - selectorH;
+  ctx.save();
+  ctx.globalAlpha = 0.98;
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#c9c9c9";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(0, y, width, selectorH, 16*scale);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, y, width, selectorH);
+  ctx.clip();
+
+  let x0 = facePad + selectorScrollX;
+  let idx = 0;
+  for (let i = 0; i < CAT_FACE_PATHS.length; ++i) {
+    if (!unlockedFaces[i]) continue;
+    let cx = x0 + faceW/2;
+    let cy = y + selectorH / 2;
+    ctx.save();
+    ctx.globalAlpha = (selectedFace === i) ? 1 : 0.6;
+    ctx.lineWidth = (selectedFace === i) ? 4 * scale : 2 * scale;
+    ctx.strokeStyle = (selectedFace === i) ? "#1faaff" : "#ccc";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, faceW/2-3*scale, faceW/2-3*scale, 0, 0, Math.PI*2);
+    ctx.stroke();
+    drawCatFace(cx, cy, i, 1);
+    ctx.restore();
+    idx++;
+    x0 += faceW + facePad;
+  }
+  ctx.restore();
+}
+
+// --- Unlock Popup ---
+function drawUnlockPopup() {
+  if (unlockPopup.show) {
+    const imgIdx = unlockPopup.faceIdx;
+    const popupW = catHitboxRX * 2.1;
+    const popupH = catHitboxRY * 2.1;
+    const x = width - popupW - 28 * scale;
+    const y = 34 * scale;
+    ctx.save();
+    ctx.globalAlpha = 0.78;
+    ctx.beginPath();
+    ctx.ellipse(x + popupW/2, y + popupH/2, popupW/2 + 8*scale, popupH/2 + 8*scale, 0, 0, Math.PI*2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    drawCatFace(x + popupW/2, y + popupH/2, imgIdx, 1);
+    ctx.globalAlpha = 1;
+    ctx.font = `bold ${Math.round(16*scale)}px Arial Black, Arial, sans-serif`;
+    ctx.fillStyle = "#ba0e19";
+    ctx.textAlign = "center";
+    ctx.fillText("New face unlocked!", x + popupW/2, y + popupH + 18*scale);
+    ctx.restore();
+  }
 }
 
 // --- Game logic ---
@@ -262,17 +339,18 @@ function resetGame() {
   gameOver = false;
   gameStarted = false;
   tryAgainBtn = null;
+  // Always unlock first face only
+  unlockedFaces = Array(CAT_FACE_PATHS.length).fill(false);
+  unlockedFaces[0] = true;
 }
 
 function updateBroomDifficulty() {
-  // Gap shrinks linearly from maxBroomGap to minBroomGap by level 300
   let level = score + 1;
   let t = Math.min(level, 300) / 300;
   broomGap = maxBroomGap - (maxBroomGap - minBroomGap) * t;
 }
 
 function startGame() {
-  // Place first broom at the right edge, then delay next broom as usual
   brooms = [];
   broomTimer = 0;
   const gapY = ceilingY + broomGap/2 + Math.random() * (groundY - ceilingY - broomGap);
@@ -284,9 +362,17 @@ function startGame() {
   catVY = 0;
 }
 
-function update() {
+function update(dt = 1/60) {
   ctx.clearRect(0, 0, width, height);
   drawGround();
+
+  // Unlock popup update
+  if (unlockPopup.show) {
+    unlockPopup.timer -= dt;
+    if (unlockPopup.timer <= 0) {
+      unlockPopup.show = false;
+    }
+  }
 
   if (!gameStarted && !gameOver) {
     drawTitle();
@@ -302,7 +388,8 @@ function update() {
       "#333"
     );
     drawScore();
-    requestAnimationFrame(update);
+    drawFaceSelector();
+    requestAnimationFrame(() => update(1/60));
     return;
   }
 
@@ -325,9 +412,18 @@ function update() {
       if (!broom.passed && broom.x + broomWidth < catX - catHitboxRX) {
         broom.passed = true;
         score++;
+        // Unlock logic: cat_face_1 = default, cat_face_2 at score 10, cat_face_3 at score 30, ..., cat_face_19 at score 180
+        if (
+          score >= 10 && 
+          ((score - 10) % 20 === 0) && 
+          Math.floor((score + 10) / 20) < CAT_FACE_PATHS.length
+        ) {
+          // Map: score 10 -> idx 1, 30 -> idx 2, ... 170 -> idx 9, ... 190 -> idx 10, etc.
+          let idx = Math.floor((score + 10) / 20);
+          if (idx < CAT_FACE_PATHS.length) unlockFace(idx);
+        }
       }
     }
-    // --- Collision detection ---
     if (checkCollision()) {
       gameOver = true;
     }
@@ -341,7 +437,6 @@ function update() {
   if (gameStarted && !gameOver) {
     drawScore();
   } else if (gameOver) {
-    // Draw Game Over UI (always on top)
     ctx.save();
     ctx.shadowColor = "#f44336";
     ctx.shadowBlur = 18 * scale;
@@ -356,9 +451,13 @@ function update() {
     ctx.restore();
 
     drawTryAgainBtn();
+    drawFaceSelector();
   }
 
-  requestAnimationFrame(update);
+  // Draw unlock popup on top
+  drawUnlockPopup();
+
+  requestAnimationFrame(() => update(1/60));
 }
 
 // --- Controls ---
@@ -371,7 +470,6 @@ function triggerFlap() {
   }
 }
 
-// Only allow restart via button, and after button: return to start screen, not start game immediately
 function handleRestartBtnClick(mx, my) {
   if (tryAgainBtn) {
     if (
@@ -386,6 +484,118 @@ function handleRestartBtnClick(mx, my) {
   }
 }
 
+function handleSelectorClick(mx, my) {
+  const selectorH = 68 * scale;
+  const faceW = 62 * scale, facePad = 12 * scale;
+  const y = height - selectorH;
+  if (my < y || my > y + selectorH) return false;
+  let x0 = facePad + selectorScrollX;
+  for (let i = 0; i < CAT_FACE_PATHS.length; ++i) {
+    if (!unlockedFaces[i]) continue;
+    let cx = x0 + faceW/2;
+    let cy = y + selectorH / 2;
+    let dist2 = (mx-cx)*(mx-cx) + (my-cy)*(my-cy);
+    if (dist2 < (faceW/2)*(faceW/2)) {
+      selectedFace = i;
+      return true;
+    }
+    x0 += faceW + facePad;
+  }
+  return false;
+}
+
+canvas.addEventListener('mousedown', function (e) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+  if (gameOver) {
+    if (handleSelectorClick(mx, my)) return;
+    handleRestartBtnClick(mx, my);
+  } else if (!gameStarted && !gameOver) {
+    if (!handleSelectorClick(mx, my)) triggerFlap();
+  } else if (gameStarted && !gameOver) {
+    triggerFlap();
+  }
+});
+canvas.addEventListener('touchstart', function (e) {
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
+
+  if (gameOver) {
+    if (handleSelectorClick(mx, my)) return;
+    handleRestartBtnClick(mx, my);
+  } else if (!gameStarted && !gameOver) {
+    if (!handleSelectorClick(mx, my)) triggerFlap();
+  } else if (gameStarted && !gameOver) {
+    triggerFlap();
+  }
+  e.preventDefault();
+});
+canvas.addEventListener('touchmove', function(e) {
+  e.preventDefault();
+});
+
+// --- Selector scrolling (drag) ---
+canvas.addEventListener('mousedown', function(e) {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  const selectorH = 68 * scale;
+  const y = height - selectorH;
+  if (my > y && my < y + selectorH) {
+    selectorDragging = true;
+    selectorDragStartX = mx;
+    selectorScrollStart = selectorScrollX;
+  }
+});
+canvas.addEventListener('mousemove', function(e) {
+  if (selectorDragging) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    selectorScrollX = selectorScrollStart + (mx - selectorDragStartX);
+  }
+});
+canvas.addEventListener('mouseup', function(e) {
+  selectorDragging = false;
+});
+canvas.addEventListener('mouseleave', function(e) {
+  selectorDragging = false;
+});
+
+canvas.addEventListener('touchstart', function(e) {
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
+  const selectorH = 68 * scale;
+  const y = height - selectorH;
+  if (my > y && my < y + selectorH) {
+    selectorDragging = true;
+    selectorDragStartX = mx;
+    selectorScrollStart = selectorScrollX;
+  }
+});
+canvas.addEventListener('touchmove', function(e) {
+  if (selectorDragging) {
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+    selectorScrollX = selectorScrollStart + (mx - selectorDragStartX);
+  }
+  e.preventDefault();
+});
+canvas.addEventListener('touchend', function(e) {
+  selectorDragging = false;
+  e.preventDefault();
+});
+canvas.addEventListener('touchcancel', function(e) {
+  selectorDragging = false;
+});
+
+// --- Keyboard controls ---
 document.addEventListener('keydown', function (e) {
   if (!gameStarted && !gameOver && (e.code === 'Space' || e.code === 'Enter')) {
     e.preventDefault();
@@ -398,36 +608,6 @@ document.addEventListener('keydown', function (e) {
   // Do NOT allow restart with space/enter if game over
 });
 
-canvas.addEventListener('mousedown', function (e) {
-  const rect = canvas.getBoundingClientRect();
-  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
-  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
-  if (!gameStarted && !gameOver) {
-    triggerFlap();
-  } else if (gameOver) {
-    handleRestartBtnClick(mx, my);
-  } else if (gameStarted && !gameOver) {
-    triggerFlap();
-  }
-});
-canvas.addEventListener('touchstart', function (e) {
-  const rect = canvas.getBoundingClientRect();
-  const touch = e.touches[0];
-  const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
-  const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
-  if (!gameStarted && !gameOver) {
-    triggerFlap();
-  } else if (gameOver) {
-    handleRestartBtnClick(mx, my);
-  } else if (gameStarted && !gameOver) {
-    triggerFlap();
-  }
-  e.preventDefault();
-});
-canvas.addEventListener('touchmove', function(e) {
-  e.preventDefault();
-});
-
 // --- Init ---
 window.addEventListener('resize', () => {
   resizeCanvas();
@@ -436,6 +616,9 @@ window.addEventListener('resize', () => {
 catImages[0].onload = function() {
   update();
 };
+// On load: unlock only first face
+unlockedFaces = Array(CAT_FACE_PATHS.length).fill(false);
+unlockedFaces[0] = true;
 resizeCanvas();
 resetGame();
 update();
