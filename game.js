@@ -1,4 +1,4 @@
-// --- Flappy Cat Game: Correct Unlock Logic, Popup, and Selector ---
+// --- Flappy Cat Game: Improved Unlock Logic, Persistent Selector, Refined Popup ---
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -36,18 +36,31 @@ let unlockPopup = {
 };
 
 // --- Selector state ---
-let selectorScrollX = 0; // Horizontal scroll for selector
+let selectorScrollX = 0;
 let selectorDragging = false;
 let selectorDragStartX = 0;
 let selectorScrollStart = 0;
 
-// --- Unlock face when reaching the correct score threshold ---
+// --- Persistent unlocked faces for this session
+function initUnlockedFaces() {
+  if (!window._flappyCatUnlocked) {
+    window._flappyCatUnlocked = Array(CAT_FACE_PATHS.length).fill(false);
+    window._flappyCatUnlocked[0] = true;
+  }
+  unlockedFaces = window._flappyCatUnlocked.slice();
+}
+function persistUnlockedFaces() {
+  window._flappyCatUnlocked = unlockedFaces.slice();
+}
+
+// --- Unlock face at given index (persistently for this session) ---
 function unlockFace(idx) {
   if (!unlockedFaces[idx]) {
     unlockedFaces[idx] = true;
+    persistUnlockedFaces();
     unlockPopup.show = true;
     unlockPopup.faceIdx = idx;
-    unlockPopup.timer = 3.0; // show for 3 seconds
+    unlockPopup.timer = 3.0;
   }
 }
 
@@ -262,8 +275,6 @@ function drawTryAgainBtn() {
 function drawFaceSelector() {
   const selectorH = 68 * scale;
   const faceW = 62 * scale, facePad = 12 * scale;
-  const totalFaces = unlockedFaces.filter(f=>f).length;
-  const scrollW = totalFaces * (faceW + facePad) + facePad;
   const y = height - selectorH;
   ctx.save();
   ctx.globalAlpha = 0.98;
@@ -282,7 +293,6 @@ function drawFaceSelector() {
   ctx.clip();
 
   let x0 = facePad + selectorScrollX;
-  let idx = 0;
   for (let i = 0; i < CAT_FACE_PATHS.length; ++i) {
     if (!unlockedFaces[i]) continue;
     let cx = x0 + faceW/2;
@@ -296,32 +306,26 @@ function drawFaceSelector() {
     ctx.stroke();
     drawCatFace(cx, cy, i, 1);
     ctx.restore();
-    idx++;
     x0 += faceW + facePad;
   }
   ctx.restore();
 }
 
-// --- Unlock Popup ---
+// --- Unlock Popup (top left, no text, more opaque) ---
 function drawUnlockPopup() {
   if (unlockPopup.show) {
     const imgIdx = unlockPopup.faceIdx;
     const popupW = catHitboxRX * 2.1;
     const popupH = catHitboxRY * 2.1;
-    const x = width - popupW - 28 * scale;
-    const y = 34 * scale;
+    const x = 18 * scale;
+    const y = 18 * scale;
     ctx.save();
-    ctx.globalAlpha = 0.78;
+    ctx.globalAlpha = 0.92;
     ctx.beginPath();
     ctx.ellipse(x + popupW/2, y + popupH/2, popupW/2 + 8*scale, popupH/2 + 8*scale, 0, 0, Math.PI*2);
     ctx.fillStyle = "#fff";
     ctx.fill();
     drawCatFace(x + popupW/2, y + popupH/2, imgIdx, 1);
-    ctx.globalAlpha = 1;
-    ctx.font = `bold ${Math.round(16*scale)}px Arial Black, Arial, sans-serif`;
-    ctx.fillStyle = "#ba0e19";
-    ctx.textAlign = "center";
-    ctx.fillText("New face unlocked!", x + popupW/2, y + popupH + 18*scale);
     ctx.restore();
   }
 }
@@ -339,9 +343,8 @@ function resetGame() {
   gameOver = false;
   gameStarted = false;
   tryAgainBtn = null;
-  // Always unlock first face only
-  unlockedFaces = Array(CAT_FACE_PATHS.length).fill(false);
-  unlockedFaces[0] = true;
+  // Re-initialize unlockedFaces from persistent session data
+  initUnlockedFaces();
 }
 
 function updateBroomDifficulty() {
@@ -412,15 +415,10 @@ function update(dt = 1/60) {
       if (!broom.passed && broom.x + broomWidth < catX - catHitboxRX) {
         broom.passed = true;
         score++;
-        // Unlock logic: cat_face_1 = default, cat_face_2 at score 10, cat_face_3 at score 30, ..., cat_face_19 at score 180
-        if (
-          score >= 10 && 
-          ((score - 10) % 20 === 0) && 
-          Math.floor((score + 10) / 20) < CAT_FACE_PATHS.length
-        ) {
-          // Map: score 10 -> idx 1, 30 -> idx 2, ... 170 -> idx 9, ... 190 -> idx 10, etc.
-          let idx = Math.floor((score + 10) / 20);
-          if (idx < CAT_FACE_PATHS.length) unlockFace(idx);
+        // Unlock logic: cat_face_1 is default, then cat_face_2 at 10, cat_face_3 at 20, ..., cat_face_19 at 180
+        // So idx = Math.floor(score/10), but only if in range and not yet unlocked
+        if (score % 10 === 0 && score / 10 < CAT_FACE_PATHS.length && score > 0) {
+          unlockFace(score / 10);
         }
       }
     }
@@ -479,7 +477,6 @@ function handleRestartBtnClick(mx, my) {
       my <= tryAgainBtn.y + tryAgainBtn.h
     ) {
       resetGame();
-      // Do not call startGame(); return to start screen instead
     }
   }
 }
@@ -616,9 +613,8 @@ window.addEventListener('resize', () => {
 catImages[0].onload = function() {
   update();
 };
-// On load: unlock only first face
-unlockedFaces = Array(CAT_FACE_PATHS.length).fill(false);
-unlockedFaces[0] = true;
+// On load: initialize unlocked faces from session
+initUnlockedFaces();
 resizeCanvas();
 resetGame();
 update();
