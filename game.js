@@ -1,5 +1,4 @@
-// Flappy Cat: Fixed input and mobile broom interval
-
+// Flappy Cat: Improved pause, try again button, and mobile broom fix
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -44,7 +43,7 @@ let tryAgainBtn = null;
 // --- Pause Button/Menu/Countdown State ---
 let pauseBtn = null;
 let paused = false;
-let pauseMenu = { show: false, resumeBtn: null, sfxToggleBtn: null };
+let pauseMenu = { show: false, resumeBtn: null };
 let pauseCountdown = { running: false, timer: 0, num: 3 };
 
 // --- Unlock popup state ---
@@ -123,11 +122,11 @@ function resizeCanvas() {
 
   // --- PLATFORM-SPECIFIC BROOM INTERVAL ---
   if (MOBILE) {
-    broomBaseInterval = 40; // Much closer brooms for mobile (not scaled)
+    broomBaseInterval = 100; // Much closer brooms for mobile (not scaled)
   } else {
     broomBaseInterval = Math.round(120 * scale); // Desktop/laptop
   }
-  minBroomInterval = Math.round(40 * scale);
+  minBroomInterval = Math.round(100 * scale);
   broomInterval = broomBaseInterval;
 
   gravity = 0.13 * scale;
@@ -204,24 +203,57 @@ function drawPauseBtn() {
   ctx.restore();
 }
 
-// --- Unlock Popup (to the left of the pause button) ---
-function drawUnlockPopup() {
-  if (unlockPopup.show) {
-    const imgIdx = unlockPopup.faceIdx;
-    const popupW = catHitboxRX * 2.1;
-    const popupH = catHitboxRY * 2.1;
-    const margin = 16 * scale;
-    const btnSize = 44 * scale;
-    // Place the popup to the left of the pause button, centered vertically with it
-    const x = width - btnSize - margin - popupW - 12 * scale;
-    const y = margin + (btnSize/2 - popupH/2);
-    drawCatFace(
-      x + popupW/2,
-      y + popupH/2,
-      imgIdx,
-      0.7
-    );
-  }
+// --- Draw Pause Menu (centered window with Resume button) ---
+function drawPauseMenu() {
+  const winW = 260 * scale, winH = 160 * scale;
+  const winX = (width - winW) / 2, winY = height/2 - winH/2;
+
+  // Overlay
+  ctx.save();
+  ctx.globalAlpha = 0.78;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = 1;
+
+  // Pause window
+  ctx.save();
+  ctx.shadowColor = "#ba0e19";
+  ctx.shadowBlur = 18 * scale;
+  ctx.beginPath();
+  ctx.roundRect(winX, winY, winW, winH, 22*scale);
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#ba0e19";
+  ctx.lineWidth = 3*scale;
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+
+  // "Paused"
+  ctx.font = `bold ${Math.round(28*scale)}px Arial Black, Arial, sans-serif`;
+  ctx.fillStyle = "#ba0e19";
+  ctx.textAlign = "center";
+  ctx.fillText("Paused", width/2, winY + 38*scale);
+
+  // Resume Button
+  const btnW = winW * 0.85, btnH = 40*scale, btnX = width/2 - btnW/2, btnY = winY + 70*scale;
+  pauseMenu.resumeBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
+  ctx.save();
+  ctx.shadowColor = "#1faaff";
+  ctx.shadowBlur = 10*scale;
+  ctx.beginPath();
+  ctx.roundRect(btnX, btnY, btnW, btnH, 13*scale);
+  ctx.fillStyle = "#4ecbff";
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "#1faaff";
+  ctx.stroke();
+  ctx.font = `bold ${Math.round(20*scale)}px Arial Black, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#124a89";
+  ctx.fillText("Resume", btnX + btnW/2, btnY + btnH/2 + 6*scale);
+  ctx.restore();
+  ctx.restore();
 }
 
 function catHitbox() {
@@ -249,7 +281,6 @@ function checkCollision() {
   return false;
 }
 
-// --- Drawing functions ---
 function drawScore() {
   ctx.fillStyle = "#333";
   ctx.font = `${Math.round(28 * scale)}px Arial`;
@@ -268,7 +299,6 @@ function drawGround() {
   ctx.fillRect(0, groundY, width, height-groundY);
 }
 
-// --- Fancy 3D Title text on start screen ---
 function drawTitle() {
   const titleY = 128 * scale;
   const fontSize = Math.round(46 * scale);
@@ -336,7 +366,6 @@ function drawTryAgainBtn() {
   ctx.restore();
 }
 
-// --- Game logic ---
 function resetGame() {
   catY = height / 2;
   catVY = 0;
@@ -386,32 +415,13 @@ function update(dt = 1/60) {
     }
   }
 
-  // Pause menu
   if (pauseMenu.show) {
-    // drawPauseMenu(); // Placeholder for your pause menu drawing
-    drawPauseBtn();
-    drawUnlockPopup();
-    return requestAnimationFrame(() => update(1/60));
-  }
-
-  // Pause countdown
-  if (pauseCountdown.running) {
     drawBrooms();
     drawCatFace(catX, catY, selectedFace, 1);
     drawScore();
     drawPauseBtn();
     drawUnlockPopup();
-    // drawPauseCountdown(); // Placeholder for your pause countdown
-    pauseCountdown.timer -= dt;
-    if (pauseCountdown.timer <= 0) {
-      pauseCountdown.num--;
-      if (pauseCountdown.num > 0) {
-        pauseCountdown.timer = 1;
-      } else {
-        pauseCountdown.running = false;
-        paused = false;
-      }
-    }
+    drawPauseMenu();
     return requestAnimationFrame(() => update(1/60));
   }
 
@@ -426,7 +436,6 @@ function update(dt = 1/60) {
     ctx.fillText("Tap / Space Bar", width/2, height/2 + 134 * scale);
     ctx.restore();
     drawScore();
-    // drawFaceSelector(); // Placeholder for selector
     drawPauseBtn();
     drawUnlockPopup();
     requestAnimationFrame(() => update(1/60));
@@ -487,7 +496,6 @@ function update(dt = 1/60) {
     ctx.restore();
 
     drawTryAgainBtn();
-    // drawFaceSelector(); // Placeholder for selector
     drawPauseBtn();
     drawUnlockPopup();
   }
@@ -522,19 +530,49 @@ function tryPause(mx, my) {
   return false;
 }
 
-// --- MOUSE & TOUCH ---
+function handleResumeBtn(mx, my) {
+  if (pauseMenu.resumeBtn) {
+    let btn = pauseMenu.resumeBtn;
+    if (
+      mx >= btn.x && mx <= btn.x + btn.w &&
+      my >= btn.y && my <= btn.y + btn.h
+    ) {
+      pauseMenu.show = false;
+      paused = false;
+      return true;
+    }
+  }
+  return false;
+}
+
+function handleTryAgainBtn(mx, my) {
+  if (tryAgainBtn) {
+    if (
+      mx >= tryAgainBtn.x && mx <= tryAgainBtn.x + tryAgainBtn.w &&
+      my >= tryAgainBtn.y && my <= tryAgainBtn.y + tryAgainBtn.h
+    ) {
+      resetGame();
+      return true;
+    }
+  }
+  return false;
+}
+
 canvas.addEventListener('mousedown', function (e) {
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
   const my = (e.clientY - rect.top) * (canvas.height / rect.height);
 
+  if (pauseMenu.show) {
+    if (handleResumeBtn(mx, my)) return;
+    return;
+  }
+
   if (tryPause(mx, my)) return;
 
   if (gameOver) {
-    // handleSelectorClick(mx, my); // Placeholder for selector
-    // handleRestartBtnClick(mx, my); // Placeholder for restart
+    if (handleTryAgainBtn(mx, my)) return;
   } else if (!gameStarted && !gameOver) {
-    // if (!handleSelectorClick(mx, my)) // Placeholder for selector
     triggerFlap();
   } else if (gameStarted && !gameOver && !paused) {
     triggerFlap();
@@ -546,13 +584,16 @@ canvas.addEventListener('touchstart', function (e) {
   const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
   const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
 
+  if (pauseMenu.show) {
+    if (handleResumeBtn(mx, my)) { e.preventDefault(); return; }
+    return;
+  }
+
   if (tryPause(mx, my)) { e.preventDefault(); return; }
 
   if (gameOver) {
-    // handleSelectorClick(mx, my); // Placeholder for selector
-    // handleRestartBtnClick(mx, my); // Placeholder for restart
+    if (handleTryAgainBtn(mx, my)) { e.preventDefault(); return; }
   } else if (!gameStarted && !gameOver) {
-    // if (!handleSelectorClick(mx, my)) // Placeholder for selector
     triggerFlap();
   } else if (gameStarted && !gameOver && !paused) {
     triggerFlap();
@@ -560,7 +601,6 @@ canvas.addEventListener('touchstart', function (e) {
   e.preventDefault();
 });
 
-// --- KEYBOARD ---
 document.addEventListener('keydown', function (e) {
   if (pauseMenu.show || pauseCountdown.running) return;
   if ((e.code === 'Space' || e.code === 'Enter')) {
