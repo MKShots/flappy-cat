@@ -1,4 +1,4 @@
-// Flappy Cat: Pause button toggles between pause/play icon and unlock popup is left of pause button
+// Flappy Cat: Pause menu with Resume and SFX toggle, 3-2-1 countdown on unpause
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -20,6 +20,8 @@ let catImages = CAT_FACE_PATHS.map(path => {
 const unlockSound = new Audio('assets/audio/unlock.mp3');
 const deathSound = new Audio('assets/audio/death.mp3');
 
+let sfxEnabled = true;
+
 // --- Game Variables ---
 const ASPECT_W = 3, ASPECT_H = 4;
 const BASE_W = 360, BASE_H = 480;
@@ -32,9 +34,11 @@ let gravity, jumpPower;
 let gameStarted, gameOver, score, catVY;
 let tryAgainBtn = null;
 
-// --- Pause Button State ---
+// --- Pause Button/Menu/Countdown State ---
 let pauseBtn = null;   // {x, y, w, h}
 let paused = false;
+let pauseMenu = { show: false, resumeBtn: null, sfxToggleBtn: null };
+let pauseCountdown = { running: false, timer: 0, num: 3 };
 
 // --- Unlock popup state ---
 let unlockPopup = {
@@ -61,7 +65,7 @@ function persistUnlockedFaces() {
   window._flappyCatUnlocked = unlockedFaces.slice();
 }
 function playSound(audioClip) {
-  if (audioClip) {
+  if (audioClip && sfxEnabled) {
     audioClip.currentTime = 0;
     audioClip.play();
   }
@@ -163,7 +167,7 @@ function drawPauseBtn() {
   ctx.fillStyle = "#ba0e19";
   ctx.lineWidth = 5 * scale;
   ctx.lineCap = "round";
-  if (!paused) {
+  if (!paused && !pauseMenu.show && !pauseCountdown.running) {
     // Pause icon (||)
     ctx.beginPath();
     ctx.moveTo(x + btnSize*0.38, y + btnSize*0.28);
@@ -185,6 +189,89 @@ function drawPauseBtn() {
     ctx.fill();
   }
   ctx.restore();
+}
+
+// --- Pause Menu UI ---
+function drawPauseMenu() {
+  // Overlay
+  ctx.save();
+  ctx.globalAlpha = 0.78;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = 1;
+  // Window
+  const winW = 260 * scale, winH = 180 * scale;
+  const winX = (width - winW) / 2, winY = height/2 - winH/2;
+  ctx.save();
+  ctx.shadowColor = "#ba0e19";
+  ctx.shadowBlur = 18 * scale;
+  ctx.beginPath();
+  ctx.roundRect(winX, winY, winW, winH, 22*scale);
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#ba0e19";
+  ctx.lineWidth = 3*scale;
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+  // Title
+  ctx.font = `bold ${Math.round(28*scale)}px Arial Black, Arial, sans-serif`;
+  ctx.fillStyle = "#ba0e19";
+  ctx.textAlign = "center";
+  ctx.fillText("Paused", width/2, winY + 38*scale);
+
+  // Resume Button
+  const btnW = winW * 0.85, btnH = 40*scale, btnX = width/2 - btnW/2, btnY = winY + 68*scale;
+  pauseMenu.resumeBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
+  ctx.save();
+  ctx.shadowColor = "#1faaff";
+  ctx.shadowBlur = 10*scale;
+  ctx.beginPath();
+  ctx.roundRect(btnX, btnY, btnW, btnH, 13*scale);
+  ctx.fillStyle = "#4ecbff";
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "#1faaff";
+  ctx.stroke();
+  ctx.font = `bold ${Math.round(20*scale)}px Arial Black, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#124a89";
+  ctx.fillText("Resume", btnX + btnW/2, btnY + btnH/2 + 6*scale);
+  ctx.restore();
+
+  // SFX Toggle Button
+  const sfxBtnY = btnY + btnH + 22*scale;
+  pauseMenu.sfxToggleBtn = { x: btnX, y: sfxBtnY, w: btnW, h: btnH };
+  ctx.save();
+  ctx.shadowColor = "#ba0e19";
+  ctx.shadowBlur = 8*scale;
+  ctx.beginPath();
+  ctx.roundRect(btnX, sfxBtnY, btnW, btnH, 13*scale);
+  ctx.fillStyle = sfxEnabled ? "#91ffb0" : "#ffe4e4";
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "#ba0e19";
+  ctx.stroke();
+  ctx.font = `bold ${Math.round(18*scale)}px Arial Black, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#124a89";
+  ctx.fillText(sfxEnabled ? "Sound Effects: ON" : "Sound Effects: OFF", btnX + btnW/2, sfxBtnY + btnH/2 + 6*scale);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+// --- Pause Countdown ---
+function drawPauseCountdown() {
+  if (pauseCountdown.running && pauseCountdown.num > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.font = `bold ${Math.round(120*scale)}px Arial Black, Arial, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ba0e19";
+    ctx.fillText(pauseCountdown.num, width/2, height/2);
+    ctx.restore();
+  }
 }
 
 // --- Unlock Popup (to the left of the pause button) ---
@@ -399,6 +486,9 @@ function resetGame() {
   gameStarted = false;
   tryAgainBtn = null;
   initUnlockedFaces();
+  paused = false;
+  pauseMenu.show = false;
+  pauseCountdown.running = false;
 }
 
 function updateBroomDifficulty() {
@@ -419,6 +509,7 @@ function startGame() {
   catVY = 0;
 }
 
+// --- Main update loop ---
 function update(dt = 1/60) {
   ctx.clearRect(0, 0, width, height);
   drawGround();
@@ -429,6 +520,35 @@ function update(dt = 1/60) {
     if (unlockPopup.timer <= 0) {
       unlockPopup.show = false;
     }
+  }
+
+  // Pause menu
+  if (pauseMenu.show) {
+    drawPauseMenu();
+    drawPauseBtn();
+    drawUnlockPopup();
+    return requestAnimationFrame(() => update(1/60));
+  }
+
+  // Pause countdown
+  if (pauseCountdown.running) {
+    drawBrooms();
+    drawCatFace(catX, catY, selectedFace, 1);
+    drawScore();
+    drawPauseBtn();
+    drawUnlockPopup();
+    drawPauseCountdown();
+    pauseCountdown.timer -= dt;
+    if (pauseCountdown.timer <= 0) {
+      pauseCountdown.num--;
+      if (pauseCountdown.num > 0) {
+        pauseCountdown.timer = 1;
+      } else {
+        pauseCountdown.running = false;
+        paused = false;
+      }
+    }
+    return requestAnimationFrame(() => update(1/60));
   }
 
   if (!gameStarted && !gameOver) {
@@ -513,15 +633,15 @@ function update(dt = 1/60) {
 
 // --- Controls ---
 function triggerFlap() {
-  if (!gameStarted && !gameOver && !paused) {
+  if (!gameStarted && !gameOver && !paused && !pauseMenu.show && !pauseCountdown.running) {
     startGame();
   }
-  if (gameStarted && !gameOver && !paused) {
+  if (gameStarted && !gameOver && !paused && !pauseMenu.show && !pauseCountdown.running) {
     catVY = jumpPower;
   }
 }
 
-function handlePauseBtnClick(mx, my) {
+function tryPause(mx, my) {
   if (pauseBtn) {
     if (
       mx >= pauseBtn.x &&
@@ -529,11 +649,41 @@ function handlePauseBtnClick(mx, my) {
       my >= pauseBtn.y &&
       my <= pauseBtn.y + pauseBtn.h
     ) {
-      paused = !paused;
+      if (!paused && !pauseCountdown.running && !pauseMenu.show && gameStarted && !gameOver) {
+        pauseMenu.show = true;
+      }
       return true;
     }
   }
   return false;
+}
+function tryPauseTouch(e) {
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
+  return tryPause(mx, my);
+}
+
+function handlePauseMenuClick(mx, my) {
+  if (pauseMenu.resumeBtn &&
+    mx >= pauseMenu.resumeBtn.x && mx <= pauseMenu.resumeBtn.x + pauseMenu.resumeBtn.w &&
+    my >= pauseMenu.resumeBtn.y && my <= pauseMenu.resumeBtn.y + pauseMenu.resumeBtn.h
+  ) {
+    pauseMenu.show = false;
+    pauseCountdown.running = true;
+    pauseCountdown.num = 3;
+    pauseCountdown.timer = 1;
+    paused = true;
+    return;
+  }
+  if (pauseMenu.sfxToggleBtn &&
+    mx >= pauseMenu.sfxToggleBtn.x && mx <= pauseMenu.sfxToggleBtn.x + pauseMenu.sfxToggleBtn.w &&
+    my >= pauseMenu.sfxToggleBtn.y && my <= pauseMenu.sfxToggleBtn.y + pauseMenu.sfxToggleBtn.h
+  ) {
+    sfxEnabled = !sfxEnabled;
+    return;
+  }
 }
 
 function handleRestartBtnClick(mx, my) {
@@ -574,8 +724,12 @@ canvas.addEventListener('mousedown', function (e) {
   const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
   const my = (e.clientY - rect.top) * (canvas.height / rect.height);
 
-  if (handlePauseBtnClick(mx, my)) return;
-
+  if (pauseMenu.show) {
+    handlePauseMenuClick(mx, my);
+    return;
+  }
+  if (pauseCountdown.running) return;
+  if (tryPause(mx, my)) return;
   if (gameOver) {
     if (handleSelectorClick(mx, my)) return;
     handleRestartBtnClick(mx, my);
@@ -586,12 +740,21 @@ canvas.addEventListener('mousedown', function (e) {
   }
 });
 canvas.addEventListener('touchstart', function (e) {
+  if (pauseMenu.show) {
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
+    handlePauseMenuClick(mx, my);
+    e.preventDefault();
+    return;
+  }
+  if (pauseCountdown.running) { e.preventDefault(); return; }
+  if (tryPauseTouch(e)) { e.preventDefault(); return; }
   const rect = canvas.getBoundingClientRect();
   const touch = e.touches[0];
   const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
   const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
-
-  if (handlePauseBtnClick(mx, my)) { e.preventDefault(); return; }
 
   if (gameOver) {
     if (handleSelectorClick(mx, my)) { e.preventDefault(); return; }
@@ -609,6 +772,7 @@ canvas.addEventListener('touchmove', function(e) {
 
 // --- Selector scrolling (drag) ---
 canvas.addEventListener('mousedown', function(e) {
+  if (pauseMenu.show || pauseCountdown.running) return;
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
   const my = (e.clientY - rect.top) * (canvas.height / rect.height);
@@ -621,6 +785,7 @@ canvas.addEventListener('mousedown', function(e) {
   }
 });
 canvas.addEventListener('mousemove', function(e) {
+  if (pauseMenu.show || pauseCountdown.running) return;
   if (selectorDragging) {
     const rect = canvas.getBoundingClientRect();
     const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
@@ -635,6 +800,7 @@ canvas.addEventListener('mouseleave', function(e) {
 });
 
 canvas.addEventListener('touchstart', function(e) {
+  if (pauseMenu.show || pauseCountdown.running) return;
   const rect = canvas.getBoundingClientRect();
   const touch = e.touches[0];
   const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
@@ -648,6 +814,7 @@ canvas.addEventListener('touchstart', function(e) {
   }
 });
 canvas.addEventListener('touchmove', function(e) {
+  if (pauseMenu.show || pauseCountdown.running) return;
   if (selectorDragging) {
     const rect = canvas.getBoundingClientRect();
     const touch = e.touches[0];
@@ -666,11 +833,12 @@ canvas.addEventListener('touchcancel', function(e) {
 
 // --- Keyboard controls ---
 document.addEventListener('keydown', function (e) {
-  if (!gameStarted && !gameOver && !paused && (e.code === 'Space' || e.code === 'Enter')) {
+  if (pauseMenu.show || pauseCountdown.running) return;
+  if (!gameStarted && !gameOver && (e.code === 'Space' || e.code === 'Enter')) {
     e.preventDefault();
     triggerFlap();
   }
-  if (gameStarted && !gameOver && !paused && (e.code === 'Space' || e.code === 'Enter')) {
+  if (gameStarted && !gameOver && (e.code === 'Space' || e.code === 'Enter')) {
     e.preventDefault();
     triggerFlap();
   }
