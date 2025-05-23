@@ -113,8 +113,8 @@ function resizeCanvas() {
 
   broomBaseSpeed = 1.2 * scale;
   broomSpeed = broomBaseSpeed;
-  broomBaseInterval = Math.round(170 * scale);
-  minBroomInterval = Math.round(120 * scale);
+  broomBaseInterval = Math.round(100 * scale);
+  minBroomInterval = Math.round(100 * scale);
   broomInterval = broomBaseInterval;
 
   gravity = 0.13 * scale;
