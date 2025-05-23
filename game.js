@@ -1,5 +1,4 @@
-// Clean working version: Flappy Cat Core (no sound, no pause menu, no popup offset)
-// This is your stable baseline for further incremental changes.
+// Flappy Cat Game: Adds unlock and death sound effects (no music, no pause UI yet)
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -16,6 +15,10 @@ let catImages = CAT_FACE_PATHS.map(path => {
   img.src = path;
   return img;
 });
+
+// --- Sound Effects ---
+const unlockSound = new Audio('assets/audio/unlock.mp3'); // Place your file here
+const deathSound = new Audio('assets/audio/death.mp3');   // Place your file here
 
 // --- Game Variables ---
 const ASPECT_W = 3, ASPECT_H = 4;
@@ -53,6 +56,13 @@ function initUnlockedFaces() {
 function persistUnlockedFaces() {
   window._flappyCatUnlocked = unlockedFaces.slice();
 }
+function playSound(audioClip) {
+  // Play from start; allow overlapping if triggered quickly
+  if (audioClip) {
+    audioClip.currentTime = 0;
+    audioClip.play();
+  }
+}
 function unlockFace(idx) {
   if (!unlockedFaces[idx]) {
     unlockedFaces[idx] = true;
@@ -60,6 +70,7 @@ function unlockFace(idx) {
     unlockPopup.show = true;
     unlockPopup.faceIdx = idx;
     unlockPopup.timer = 3.0;
+    playSound(unlockSound);
   }
 }
 
@@ -310,7 +321,6 @@ function drawUnlockPopup() {
     const imgIdx = unlockPopup.faceIdx;
     const popupW = catHitboxRX * 2.1;
     const popupH = catHitboxRY * 2.1;
-    // For now, just top right with margin
     const margin = 24 * scale;
     const x = width - popupW - margin;
     const y = margin;
@@ -318,7 +328,7 @@ function drawUnlockPopup() {
       x + popupW/2,
       y + popupH/2,
       imgIdx,
-      0.7 // slightly transparent, no border
+      0.7
     );
   }
 }
@@ -372,7 +382,6 @@ function update(dt = 1/60) {
   if (!gameStarted && !gameOver) {
     drawTitle();
     drawCatFace(catX, catY, selectedFace, 1);
-    // Shorter intro text with line break after "To Start:"
     ctx.save();
     ctx.font = `${Math.round(17*scale)}px Arial`;
     ctx.fillStyle = "#333";
@@ -413,6 +422,7 @@ function update(dt = 1/60) {
     }
     if (checkCollision()) {
       gameOver = true;
+      playSound(deathSound);
     }
   }
 
