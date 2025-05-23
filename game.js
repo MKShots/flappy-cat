@@ -1,4 +1,4 @@
-// Flappy Cat Game: Adds unlock and death sound effects (no music, no pause UI yet)
+// Flappy Cat: Adds pause button (top right) and moves unlock popup to the left of it (no pause menu/countdown yet)
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -17,8 +17,8 @@ let catImages = CAT_FACE_PATHS.map(path => {
 });
 
 // --- Sound Effects ---
-const unlockSound = new Audio('assets/audio/unlock.mp3'); // Place your file here
-const deathSound = new Audio('assets/audio/death.mp3');   // Place your file here
+const unlockSound = new Audio('assets/audio/unlock.mp3');
+const deathSound = new Audio('assets/audio/death.mp3');
 
 // --- Game Variables ---
 const ASPECT_W = 3, ASPECT_H = 4;
@@ -31,6 +31,10 @@ let brooms, broomTimer, broomInterval, broomBaseInterval, minBroomInterval;
 let gravity, jumpPower;
 let gameStarted, gameOver, score, catVY;
 let tryAgainBtn = null;
+
+// --- Pause Button State ---
+let pauseBtn = null;   // {x, y, w, h}
+let paused = false;
 
 // --- Unlock popup state ---
 let unlockPopup = {
@@ -57,7 +61,6 @@ function persistUnlockedFaces() {
   window._flappyCatUnlocked = unlockedFaces.slice();
 }
 function playSound(audioClip) {
-  // Play from start; allow overlapping if triggered quickly
   if (audioClip) {
     audioClip.currentTime = 0;
     audioClip.play();
@@ -135,6 +138,56 @@ function drawCatFace(x, y, faceIdx = selectedFace, opacity = 1) {
     );
   }
   ctx.restore();
+}
+
+// --- Draw Pause Button (top right) ---
+function drawPauseBtn() {
+  const btnSize = 44 * scale;
+  const margin = 16 * scale;
+  const x = width - btnSize - margin;
+  const y = margin;
+  pauseBtn = { x, y, w: btnSize, h: btnSize };
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.beginPath();
+  ctx.arc(x + btnSize/2, y + btnSize/2, btnSize/2, 0, Math.PI*2);
+  ctx.fillStyle = "#fff";
+  ctx.shadowColor = "rgba(0,0,0,0.18)";
+  ctx.shadowBlur = 4*scale;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+  // Pause icon (||)
+  ctx.strokeStyle = "#ba0e19";
+  ctx.lineWidth = 5 * scale;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x + btnSize*0.38, y + btnSize*0.28);
+  ctx.lineTo(x + btnSize*0.38, y + btnSize*0.72);
+  ctx.moveTo(x + btnSize*0.62, y + btnSize*0.28);
+  ctx.lineTo(x + btnSize*0.62, y + btnSize*0.72);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// --- Unlock Popup (to the left of the pause button) ---
+function drawUnlockPopup() {
+  if (unlockPopup.show) {
+    const imgIdx = unlockPopup.faceIdx;
+    const popupW = catHitboxRX * 2.1;
+    const popupH = catHitboxRY * 2.1;
+    const margin = 16 * scale;
+    const btnSize = 44 * scale;
+    // Place the popup to the left of the pause button, centered vertically with it
+    const x = width - btnSize - margin - popupW - 12 * scale;
+    const y = margin + (btnSize/2 - popupH/2);
+    drawCatFace(
+      x + popupW/2,
+      y + popupH/2,
+      imgIdx,
+      0.7
+    );
+  }
 }
 
 function catHitbox() {
@@ -315,24 +368,6 @@ function drawFaceSelector() {
   ctx.restore();
 }
 
-// --- Unlock Popup (top right, face only, semi-transparent, no border/background) ---
-function drawUnlockPopup() {
-  if (unlockPopup.show) {
-    const imgIdx = unlockPopup.faceIdx;
-    const popupW = catHitboxRX * 2.1;
-    const popupH = catHitboxRY * 2.1;
-    const margin = 24 * scale;
-    const x = width - popupW - margin;
-    const y = margin;
-    drawCatFace(
-      x + popupW/2,
-      y + popupH/2,
-      imgIdx,
-      0.7
-    );
-  }
-}
-
 // --- Game logic ---
 function resetGame() {
   catY = height / 2;
@@ -391,13 +426,14 @@ function update(dt = 1/60) {
     ctx.restore();
     drawScore();
     drawFaceSelector();
+    drawPauseBtn();
     drawUnlockPopup();
     requestAnimationFrame(() => update(1/60));
     return;
   }
 
   // --- Physics & Gameplay ---
-  if (gameStarted && !gameOver) {
+  if (gameStarted && !gameOver && !paused) {
     catVY += gravity;
     catY += catVY;
     updateBroomDifficulty();
@@ -433,6 +469,7 @@ function update(dt = 1/60) {
   // --- UI (drawn last, always on top) ---
   if (gameStarted && !gameOver) {
     drawScore();
+    drawPauseBtn();
     drawUnlockPopup();
   } else if (gameOver) {
     ctx.save();
@@ -450,6 +487,7 @@ function update(dt = 1/60) {
 
     drawTryAgainBtn();
     drawFaceSelector();
+    drawPauseBtn();
     drawUnlockPopup();
   }
 
@@ -458,12 +496,27 @@ function update(dt = 1/60) {
 
 // --- Controls ---
 function triggerFlap() {
-  if (!gameStarted && !gameOver) {
+  if (!gameStarted && !gameOver && !paused) {
     startGame();
   }
-  if (gameStarted && !gameOver) {
+  if (gameStarted && !gameOver && !paused) {
     catVY = jumpPower;
   }
+}
+
+function handlePauseBtnClick(mx, my) {
+  if (pauseBtn) {
+    if (
+      mx >= pauseBtn.x &&
+      mx <= pauseBtn.x + pauseBtn.w &&
+      my >= pauseBtn.y &&
+      my <= pauseBtn.y + pauseBtn.h
+    ) {
+      paused = !paused;
+      return true;
+    }
+  }
+  return false;
 }
 
 function handleRestartBtnClick(mx, my) {
@@ -504,12 +557,14 @@ canvas.addEventListener('mousedown', function (e) {
   const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
   const my = (e.clientY - rect.top) * (canvas.height / rect.height);
 
+  if (handlePauseBtnClick(mx, my)) return;
+
   if (gameOver) {
     if (handleSelectorClick(mx, my)) return;
     handleRestartBtnClick(mx, my);
   } else if (!gameStarted && !gameOver) {
     if (!handleSelectorClick(mx, my)) triggerFlap();
-  } else if (gameStarted && !gameOver) {
+  } else if (gameStarted && !gameOver && !paused) {
     triggerFlap();
   }
 });
@@ -519,12 +574,14 @@ canvas.addEventListener('touchstart', function (e) {
   const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
   const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
 
+  if (handlePauseBtnClick(mx, my)) { e.preventDefault(); return; }
+
   if (gameOver) {
-    if (handleSelectorClick(mx, my)) return;
+    if (handleSelectorClick(mx, my)) { e.preventDefault(); return; }
     handleRestartBtnClick(mx, my);
   } else if (!gameStarted && !gameOver) {
     if (!handleSelectorClick(mx, my)) triggerFlap();
-  } else if (gameStarted && !gameOver) {
+  } else if (gameStarted && !gameOver && !paused) {
     triggerFlap();
   }
   e.preventDefault();
@@ -592,11 +649,11 @@ canvas.addEventListener('touchcancel', function(e) {
 
 // --- Keyboard controls ---
 document.addEventListener('keydown', function (e) {
-  if (!gameStarted && !gameOver && (e.code === 'Space' || e.code === 'Enter')) {
+  if (!gameStarted && !gameOver && !paused && (e.code === 'Space' || e.code === 'Enter')) {
     e.preventDefault();
     triggerFlap();
   }
-  if (gameStarted && !gameOver && (e.code === 'Space' || e.code === 'Enter')) {
+  if (gameStarted && !gameOver && !paused && (e.code === 'Space' || e.code === 'Enter')) {
     e.preventDefault();
     triggerFlap();
   }
