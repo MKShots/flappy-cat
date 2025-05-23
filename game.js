@@ -105,7 +105,7 @@ function resizeCanvas() {
 
   broomWidth = Math.round(44 * scale);
 
-  maxBroomGap = 7 * catHitboxRY;
+  maxBroomGap = 5 * catHitboxRY;
   minBroomGap = 1.5 * catHitboxRY;
   broomBaseGap = maxBroomGap;
   broomMinGap = minBroomGap;
