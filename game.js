@@ -1,4 +1,4 @@
-// Flappy Cat: Adds always-visible SFX toggle button under pause (not shown/active in pause menu)
+// Flappy Cat: Pause menu with Resume and SFX toggle, 3-2-1 countdown on unpause
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -36,7 +36,6 @@ let tryAgainBtn = null;
 
 // --- Pause Button/Menu/Countdown State ---
 let pauseBtn = null;   // {x, y, w, h}
-let audioBtn = null;   // {x, y, w, h}
 let paused = false;
 let pauseMenu = { show: false, resumeBtn: null, sfxToggleBtn: null };
 let pauseCountdown = { running: false, timer: 0, num: 3 };
@@ -192,85 +191,323 @@ function drawPauseBtn() {
   ctx.restore();
 }
 
-// --- Draw Audio Button (mute/volume, under pauseBtn) ---
-function drawAudioBtn() {
-  const btnSize = 44 * scale;
-  const margin = 16 * scale;
-  const gap = 12 * scale;
-  const x = width - btnSize - margin;
-  const y = margin + btnSize + gap;
-  audioBtn = { x, y, w: btnSize, h: btnSize };
-
+// --- Pause Menu UI ---
+function drawPauseMenu() {
+  // Overlay
   ctx.save();
-  ctx.globalAlpha = 0.92;
-  ctx.beginPath();
-  ctx.arc(x + btnSize/2, y + btnSize/2, btnSize/2, 0, Math.PI*2);
+  ctx.globalAlpha = 0.78;
   ctx.fillStyle = "#fff";
-  ctx.shadowColor = "rgba(0,0,0,0.18)";
-  ctx.shadowBlur = 4*scale;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = 1;
+  // Window
+  const winW = 260 * scale, winH = 180 * scale;
+  const winX = (width - winW) / 2, winY = height/2 - winH/2;
+  ctx.save();
+  ctx.shadowColor = "#ba0e19";
+  ctx.shadowBlur = 18 * scale;
+  ctx.beginPath();
+  ctx.roundRect(winX, winY, winW, winH, 22*scale);
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#ba0e19";
+  ctx.lineWidth = 3*scale;
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+  // Title
+  ctx.font = `bold ${Math.round(28*scale)}px Arial Black, Arial, sans-serif`;
+  ctx.fillStyle = "#ba0e19";
+  ctx.textAlign = "center";
+  ctx.fillText("Paused", width/2, winY + 38*scale);
+
+  // Resume Button
+  const btnW = winW * 0.85, btnH = 40*scale, btnX = width/2 - btnW/2, btnY = winY + 68*scale;
+  pauseMenu.resumeBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
+  ctx.save();
+  ctx.shadowColor = "#1faaff";
+  ctx.shadowBlur = 10*scale;
+  ctx.beginPath();
+  ctx.roundRect(btnX, btnY, btnW, btnH, 13*scale);
+  ctx.fillStyle = "#4ecbff";
   ctx.fill();
   ctx.shadowBlur = 0;
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = "#ba0e19";
-  ctx.fillStyle = "#ba0e19";
+  ctx.strokeStyle = "#1faaff";
+  ctx.stroke();
+  ctx.font = `bold ${Math.round(20*scale)}px Arial Black, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#124a89";
+  ctx.fillText("Resume", btnX + btnW/2, btnY + btnH/2 + 6*scale);
+  ctx.restore();
 
-  // Draw icon: muted ("mute", X or slash) if sfxEnabled is false, else "volume on"
-  ctx.lineWidth = 4 * scale;
-  ctx.lineCap = "round";
-  if (sfxEnabled) {
-    // "Mute" symbol: speaker with "slash"
-    // Speaker
+  // SFX Toggle Button
+  const sfxBtnY = btnY + btnH + 22*scale;
+  pauseMenu.sfxToggleBtn = { x: btnX, y: sfxBtnY, w: btnW, h: btnH };
+  ctx.save();
+  ctx.shadowColor = "#ba0e19";
+  ctx.shadowBlur = 8*scale;
+  ctx.beginPath();
+  ctx.roundRect(btnX, sfxBtnY, btnW, btnH, 13*scale);
+  ctx.fillStyle = sfxEnabled ? "#91ffb0" : "#ffe4e4";
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "#ba0e19";
+  ctx.stroke();
+  ctx.font = `bold ${Math.round(18*scale)}px Arial Black, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#124a89";
+  ctx.fillText(sfxEnabled ? "Sound Effects: ON" : "Sound Effects: OFF", btnX + btnW/2, sfxBtnY + btnH/2 + 6*scale);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+// --- Pause Countdown ---
+function drawPauseCountdown() {
+  if (pauseCountdown.running && pauseCountdown.num > 0) {
     ctx.save();
-    ctx.beginPath();
-    const sx = x + btnSize*0.34, sy = y + btnSize*0.47, sw = btnSize*0.16, sh = btnSize*0.18;
-    ctx.moveTo(sx + sw, sy - sh/2); // front tip
-    ctx.lineTo(sx, sy - sh/2);      // top left
-    ctx.lineTo(sx, sy + sh/2);      // bottom left
-    ctx.lineTo(sx + sw, sy + sh/2); // back bottom
-    ctx.closePath();
-    ctx.fill();
-    // Sound waves
-    ctx.beginPath();
-    ctx.arc(x + btnSize*0.65, y + btnSize*0.5, btnSize*0.09, -Math.PI/4, Math.PI/4, false);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x + btnSize*0.65, y + btnSize*0.5, btnSize*0.18, -Math.PI/4, Math.PI/4, false);
-    ctx.stroke();
+    ctx.globalAlpha = 0.7;
+    ctx.font = `bold ${Math.round(120*scale)}px Arial Black, Arial, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ba0e19";
+    ctx.fillText(pauseCountdown.num, width/2, height/2);
     ctx.restore();
-    // Slash line (mute)
+  }
+}
+
+// --- Unlock Popup (to the left of the pause button) ---
+function drawUnlockPopup() {
+  if (unlockPopup.show) {
+    const imgIdx = unlockPopup.faceIdx;
+    const popupW = catHitboxRX * 2.1;
+    const popupH = catHitboxRY * 2.1;
+    const margin = 16 * scale;
+    const btnSize = 44 * scale;
+    // Place the popup to the left of the pause button, centered vertically with it
+    const x = width - btnSize - margin - popupW - 12 * scale;
+    const y = margin + (btnSize/2 - popupH/2);
+    drawCatFace(
+      x + popupW/2,
+      y + popupH/2,
+      imgIdx,
+      0.7
+    );
+  }
+}
+
+function catHitbox() {
+  return {
+    x: catX,
+    y: catY,
+    rx: catHitboxRX,
+    ry: catHitboxRY
+  };
+}
+
+function checkCollision() {
+  let hit = catHitbox();
+  for (let broom of brooms) {
+    if (hit.x + hit.rx > broom.x && hit.x - hit.rx < broom.x + broomWidth) {
+      if (
+        hit.y - hit.ry < broom.gapY - broom.gap/2 ||
+        hit.y + hit.ry > broom.gapY + broom.gap/2
+      ) {
+        return true;
+      }
+    }
+  }
+  if (catY + catHitboxRY > groundY) return true;
+  return false;
+}
+
+// --- Drawing functions ---
+function drawScore() {
+  ctx.fillStyle = "#333";
+  ctx.font = `${Math.round(28 * scale)}px Arial`;
+  ctx.textAlign = "left";
+  ctx.fillText(`Score: ${score}`, 20 * scale, 44 * scale);
+}
+function wrapText(text, x, y, maxWidth, lineHeight, maxLines, font, color, align="center") {
+  ctx.save();
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  let words = text.split(' ');
+  let line = '';
+  let lines = [];
+  for (let n = 0; n < words.length; n++) {
+    let testLine = line + words[n] + ' ';
+    let metrics = ctx.measureText(testLine);
+    let testWidth = metrics.width;
+    if (testWidth > maxWidth && n > 0) {
+      lines.push(line);
+      line = words[n] + ' ';
+      if (lines.length === maxLines - 1) break;
+    } else {
+      line = testLine;
+    }
+  }
+  lines.push(line);
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], x, y + i * lineHeight);
+  }
+  ctx.restore();
+}
+function drawBrooms() {
+  ctx.fillStyle = "#c28d60";
+  for (let broom of brooms) {
+    ctx.fillRect(broom.x, 0, broomWidth, broom.gapY - broom.gap / 2);
+    ctx.fillRect(broom.x, broom.gapY + broom.gap / 2, broomWidth, height - (broom.gapY + broom.gap / 2));
+  }
+}
+function drawGround() {
+  ctx.fillStyle = "#c6b79b";
+  ctx.fillRect(0, groundY, width, height-groundY);
+}
+
+// --- Fancy 3D Title text on start screen ---
+function drawTitle() {
+  const titleY = 128 * scale;
+  const fontSize = Math.round(46 * scale);
+  ctx.save();
+  ctx.font = `bold ${fontSize}px Arial Black, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  for (let i = 7; i > 0; i--) {
+    ctx.fillStyle = `rgba(80,0,0,${0.12 + i*0.04})`;
+    ctx.fillText("Flappy Cat", width/2 + i, titleY + i);
+  }
+  let grad = ctx.createLinearGradient(width/2 - 80*scale, titleY, width/2 + 80*scale, titleY + fontSize);
+  grad.addColorStop(0, "#990000");
+  grad.addColorStop(0.4, "#c1272d");
+  grad.addColorStop(0.6, "#ed1c24");
+  grad.addColorStop(1, "#ff6767");
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 3 * scale;
+  ctx.strokeText("Flappy Cat", width/2, titleY);
+  ctx.fillText("Flappy Cat", width/2, titleY);
+
+  ctx.globalAlpha = 0.2;
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.ellipse(width/2, titleY + fontSize*0.45, fontSize*1.2, fontSize*0.32, 0, Math.PI*0.1, Math.PI*0.9, false);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawTryAgainBtn() {
+  let btnW = 150 * scale, btnH = 45 * scale;
+  let btnX = width/2 - btnW/2;
+  let btnY = height/2 + 65 * scale;
+  tryAgainBtn = {x: btnX, y: btnY, w: btnW, h: btnH};
+
+  ctx.save();
+  ctx.shadowColor = "#1faaff";
+  ctx.shadowBlur = 12 * scale;
+
+  let grad = ctx.createLinearGradient(btnX, btnY, btnX, btnY+btnH);
+  grad.addColorStop(0, "#4ecbff");
+  grad.addColorStop(0.7, "#1faaff");
+  grad.addColorStop(1, "#267cc1");
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2 * scale;
+
+  ctx.beginPath();
+  ctx.roundRect(btnX, btnY, btnW, btnH, 14 * scale);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.font = `bold ${Math.round(22*scale)}px Arial Black, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1.3*scale;
+  ctx.strokeText("Try again", width/2, btnY + btnH/2);
+  ctx.fillStyle = "#124a89";
+  ctx.fillText("Try again", width/2, btnY + btnH/2);
+
+  ctx.restore();
+}
+
+// --- Face Selector ---
+function drawFaceSelector() {
+  const selectorH = 68 * scale;
+  const faceW = 62 * scale, facePad = 12 * scale;
+  const y = height - selectorH;
+  ctx.save();
+  ctx.globalAlpha = 0.98;
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#c9c9c9";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(0, y, width, selectorH, 16*scale);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, y, width, selectorH);
+  ctx.clip();
+
+  let x0 = facePad + selectorScrollX;
+  for (let i = 0; i < CAT_FACE_PATHS.length; ++i) {
+    if (!unlockedFaces[i]) continue;
+    let cx = x0 + faceW/2;
+    let cy = y + selectorH / 2;
     ctx.save();
-    ctx.strokeStyle = "#ba0e19";
-    ctx.lineWidth = 4 * scale;
+    ctx.globalAlpha = (selectedFace === i) ? 1 : 0.6;
+    ctx.lineWidth = (selectedFace === i) ? 2 * scale : 1 * scale;
+    ctx.strokeStyle = (selectedFace === i) ? "#1faaff" : "#ccc";
     ctx.beginPath();
-    ctx.moveTo(x + btnSize*0.68, y + btnSize*0.32);
-    ctx.lineTo(x + btnSize*0.32, y + btnSize*0.68);
+    ctx.ellipse(cx, cy, faceW/2-3*scale, faceW/2-3*scale, 0, 0, Math.PI*2);
     ctx.stroke();
+    drawCatFace(cx, cy, i, 1);
     ctx.restore();
-  } else {
-    // "Volume" symbol: speaker with two sound waves
-    // Speaker
-    ctx.save();
-    ctx.beginPath();
-    const sx = x + btnSize*0.34, sy = y + btnSize*0.47, sw = btnSize*0.16, sh = btnSize*0.18;
-    ctx.moveTo(sx + sw, sy - sh/2); // front tip
-    ctx.lineTo(sx, sy - sh/2);      // top left
-    ctx.lineTo(sx, sy + sh/2);      // bottom left
-    ctx.lineTo(sx + sw, sy + sh/2); // back bottom
-    ctx.closePath();
-    ctx.fill();
-    // Sound waves
-    ctx.beginPath();
-    ctx.arc(x + btnSize*0.65, y + btnSize*0.5, btnSize*0.09, -Math.PI/4, Math.PI/4, false);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x + btnSize*0.65, y + btnSize*0.5, btnSize*0.18, -Math.PI/4, Math.PI/4, false);
-    ctx.stroke();
-    ctx.restore();
+    x0 += faceW + facePad;
   }
   ctx.restore();
 }
 
-// ... (all your other functions remain unchanged, including drawPauseMenu, drawUnlockPopup, drawFaceSelector, etc.) ...
+// --- Game logic ---
+function resetGame() {
+  catY = height / 2;
+  catVY = 0;
+  broomGap = broomBaseGap;
+  broomSpeed = broomBaseSpeed;
+  broomInterval = broomBaseInterval;
+  brooms = [];
+  broomTimer = 0;
+  score = 0;
+  gameOver = false;
+  gameStarted = false;
+  tryAgainBtn = null;
+  initUnlockedFaces();
+  paused = false;
+  pauseMenu.show = false;
+  pauseCountdown.running = false;
+}
+
+function updateBroomDifficulty() {
+  let level = score + 1;
+  let t = Math.min(level, 300) / 300;
+  broomGap = maxBroomGap - (maxBroomGap - minBroomGap) * t;
+}
+
+function startGame() {
+  brooms = [];
+  broomTimer = 0;
+  const gapY = ceilingY + broomGap/2 + Math.random() * (groundY - ceilingY - broomGap);
+  brooms.push({ x: width, gapY, gap: broomGap, passed: false });
+  gameStarted = true;
+  gameOver = false;
+  score = 0;
+  catY = height / 2;
+  catVY = 0;
+}
 
 // --- Main update loop ---
 function update(dt = 1/60) {
@@ -299,7 +536,6 @@ function update(dt = 1/60) {
     drawCatFace(catX, catY, selectedFace, 1);
     drawScore();
     drawPauseBtn();
-    drawAudioBtn();
     drawUnlockPopup();
     drawPauseCountdown();
     pauseCountdown.timer -= dt;
@@ -328,7 +564,6 @@ function update(dt = 1/60) {
     drawScore();
     drawFaceSelector();
     drawPauseBtn();
-    drawAudioBtn();
     drawUnlockPopup();
     requestAnimationFrame(() => update(1/60));
     return;
@@ -372,7 +607,6 @@ function update(dt = 1/60) {
   if (gameStarted && !gameOver) {
     drawScore();
     drawPauseBtn();
-    drawAudioBtn();
     drawUnlockPopup();
   } else if (gameOver) {
     ctx.save();
@@ -391,7 +625,6 @@ function update(dt = 1/60) {
     drawTryAgainBtn();
     drawFaceSelector();
     drawPauseBtn();
-    drawAudioBtn();
     drawUnlockPopup();
   }
 
@@ -424,33 +657,12 @@ function tryPause(mx, my) {
   }
   return false;
 }
-function tryAudioToggle(mx, my) {
-  if (audioBtn && !pauseMenu.show) {
-    if (
-      mx >= audioBtn.x &&
-      mx <= audioBtn.x + audioBtn.w &&
-      my >= audioBtn.y &&
-      my <= audioBtn.y + audioBtn.h
-    ) {
-      sfxEnabled = !sfxEnabled;
-      return true;
-    }
-  }
-  return false;
-}
 function tryPauseTouch(e) {
   const rect = canvas.getBoundingClientRect();
   const touch = e.touches[0];
   const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
   const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
   return tryPause(mx, my);
-}
-function tryAudioToggleTouch(e) {
-  const rect = canvas.getBoundingClientRect();
-  const touch = e.touches[0];
-  const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
-  const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
-  return tryAudioToggle(mx, my);
 }
 
 function handlePauseMenuClick(mx, my) {
@@ -474,7 +686,38 @@ function handlePauseMenuClick(mx, my) {
   }
 }
 
-// ... (other handlers for restart button, selector, drag, touch, keyboard remain unchanged) ...
+function handleRestartBtnClick(mx, my) {
+  if (tryAgainBtn) {
+    if (
+      mx >= tryAgainBtn.x &&
+      mx <= tryAgainBtn.x + tryAgainBtn.w &&
+      my >= tryAgainBtn.y &&
+      my <= tryAgainBtn.y + tryAgainBtn.h
+    ) {
+      resetGame();
+    }
+  }
+}
+
+function handleSelectorClick(mx, my) {
+  const selectorH = 68 * scale;
+  const faceW = 62 * scale, facePad = 12 * scale;
+  const y = height - selectorH;
+  if (my < y || my > y + selectorH) return false;
+  let x0 = facePad + selectorScrollX;
+  for (let i = 0; i < CAT_FACE_PATHS.length; ++i) {
+    if (!unlockedFaces[i]) continue;
+    let cx = x0 + faceW/2;
+    let cy = y + selectorH / 2;
+    let dist2 = (mx-cx)*(mx-cx) + (my-cy)*(my-cy);
+    if (dist2 < (faceW/2)*(faceW/2)) {
+      selectedFace = i;
+      return true;
+    }
+    x0 += faceW + facePad;
+  }
+  return false;
+}
 
 canvas.addEventListener('mousedown', function (e) {
   const rect = canvas.getBoundingClientRect();
@@ -487,7 +730,6 @@ canvas.addEventListener('mousedown', function (e) {
   }
   if (pauseCountdown.running) return;
   if (tryPause(mx, my)) return;
-  if (tryAudioToggle(mx, my)) return;
   if (gameOver) {
     if (handleSelectorClick(mx, my)) return;
     handleRestartBtnClick(mx, my);
@@ -509,7 +751,6 @@ canvas.addEventListener('touchstart', function (e) {
   }
   if (pauseCountdown.running) { e.preventDefault(); return; }
   if (tryPauseTouch(e)) { e.preventDefault(); return; }
-  if (tryAudioToggleTouch(e)) { e.preventDefault(); return; }
   const rect = canvas.getBoundingClientRect();
   const touch = e.touches[0];
   const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
@@ -525,9 +766,85 @@ canvas.addEventListener('touchstart', function (e) {
   }
   e.preventDefault();
 });
+canvas.addEventListener('touchmove', function(e) {
+  e.preventDefault();
+});
 
-// ... (rest of drag and keyboard handlers are unchanged) ...
+// --- Selector scrolling (drag) ---
+canvas.addEventListener('mousedown', function(e) {
+  if (pauseMenu.show || pauseCountdown.running) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+  const selectorH = 68 * scale;
+  const y = height - selectorH;
+  if (my > y && my < y + selectorH) {
+    selectorDragging = true;
+    selectorDragStartX = mx;
+    selectorScrollStart = selectorScrollX;
+  }
+});
+canvas.addEventListener('mousemove', function(e) {
+  if (pauseMenu.show || pauseCountdown.running) return;
+  if (selectorDragging) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    selectorScrollX = selectorScrollStart + (mx - selectorDragStartX);
+  }
+});
+canvas.addEventListener('mouseup', function(e) {
+  selectorDragging = false;
+});
+canvas.addEventListener('mouseleave', function(e) {
+  selectorDragging = false;
+});
 
+canvas.addEventListener('touchstart', function(e) {
+  if (pauseMenu.show || pauseCountdown.running) return;
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
+  const selectorH = 68 * scale;
+  const y = height - selectorH;
+  if (my > y && my < y + selectorH) {
+    selectorDragging = true;
+    selectorDragStartX = mx;
+    selectorScrollStart = selectorScrollX;
+  }
+});
+canvas.addEventListener('touchmove', function(e) {
+  if (pauseMenu.show || pauseCountdown.running) return;
+  if (selectorDragging) {
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+    selectorScrollX = selectorScrollStart + (mx - selectorDragStartX);
+  }
+  e.preventDefault();
+});
+canvas.addEventListener('touchend', function(e) {
+  selectorDragging = false;
+  e.preventDefault();
+});
+canvas.addEventListener('touchcancel', function(e) {
+  selectorDragging = false;
+});
+
+// --- Keyboard controls ---
+document.addEventListener('keydown', function (e) {
+  if (pauseMenu.show || pauseCountdown.running) return;
+  if (!gameStarted && !gameOver && (e.code === 'Space' || e.code === 'Enter')) {
+    e.preventDefault();
+    triggerFlap();
+  }
+  if (gameStarted && !gameOver && (e.code === 'Space' || e.code === 'Enter')) {
+    e.preventDefault();
+    triggerFlap();
+  }
+});
+
+// --- Init ---
 window.addEventListener('resize', () => {
   resizeCanvas();
   if (!gameStarted) catY = height/2;
