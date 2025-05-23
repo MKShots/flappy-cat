@@ -1,3 +1,8 @@
+// Flappy Cat: Pause menu with Resume and SFX toggle, 3-2-1 countdown on unpause
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
 // --- Cat Faces ---
 const CAT_FACE_PATHS = [];
 for (let i = 1; i <= 19; i++) {
@@ -14,17 +19,10 @@ let catImages = CAT_FACE_PATHS.map(path => {
 // --- Sound Effects ---
 const unlockSound = new Audio('assets/audio/unlock.mp3');
 const deathSound = new Audio('assets/audio/death.mp3');
+
 let sfxEnabled = true;
 
-// --- Platform Detection ---
-function isMobile() {
-  return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    || (typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0));
-}
-
 // --- Game Variables ---
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
 const ASPECT_W = 3, ASPECT_H = 4;
 const BASE_W = 360, BASE_H = 480;
 
@@ -37,7 +35,7 @@ let gameStarted, gameOver, score, catVY;
 let tryAgainBtn = null;
 
 // --- Pause Button/Menu/Countdown State ---
-let pauseBtn = null;
+let pauseBtn = null;   // {x, y, w, h}
 let paused = false;
 let pauseMenu = { show: false, resumeBtn: null, sfxToggleBtn: null };
 let pauseCountdown = { running: false, timer: 0, num: 3 };
@@ -115,13 +113,7 @@ function resizeCanvas() {
 
   broomBaseSpeed = 1.2 * scale;
   broomSpeed = broomBaseSpeed;
-
-  // --- Platform-specific broomBaseInterval ---
-  if (isMobile()) {
-    broomBaseInterval = 100; // fixed value for mobile
-  } else {
-    broomBaseInterval = Math.round(170 * scale); // unchanged for laptop/desktop
-  }
+  broomBaseInterval = Math.round(170 * scale);
   minBroomInterval = Math.round(120 * scale);
   broomInterval = broomBaseInterval;
 
@@ -152,7 +144,7 @@ function drawCatFace(x, y, faceIdx = selectedFace, opacity = 1) {
   ctx.restore();
 }
 
-// --- Draw Pause Button ---
+// --- Draw Pause Button (top right, toggles between pause/play icon) ---
 function drawPauseBtn() {
   const btnSize = 44 * scale;
   const margin = 16 * scale;
@@ -207,7 +199,6 @@ function drawPauseMenu() {
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, width, height);
   ctx.globalAlpha = 1;
-
   // Window
   const winW = 260 * scale, winH = 180 * scale;
   const winX = (width - winW) / 2, winY = height/2 - winH/2;
@@ -223,7 +214,6 @@ function drawPauseMenu() {
   ctx.stroke();
   ctx.shadowBlur = 0;
   ctx.restore();
-
   // Title
   ctx.font = `bold ${Math.round(28*scale)}px Arial Black, Arial, sans-serif`;
   ctx.fillStyle = "#ba0e19";
@@ -442,6 +432,7 @@ function drawTryAgainBtn() {
   ctx.restore();
 }
 
+// --- Face Selector ---
 function drawFaceSelector() {
   const selectorH = 68 * scale;
   const faceW = 62 * scale, facePad = 12 * scale;
@@ -481,6 +472,7 @@ function drawFaceSelector() {
   ctx.restore();
 }
 
+// --- Game logic ---
 function resetGame() {
   catY = height / 2;
   catVY = 0;
@@ -517,10 +509,12 @@ function startGame() {
   catVY = 0;
 }
 
+// --- Main update loop ---
 function update(dt = 1/60) {
   ctx.clearRect(0, 0, width, height);
   drawGround();
 
+  // Unlock popup update
   if (unlockPopup.show) {
     unlockPopup.timer -= dt;
     if (unlockPopup.timer <= 0) {
@@ -528,6 +522,7 @@ function update(dt = 1/60) {
     }
   }
 
+  // Pause menu
   if (pauseMenu.show) {
     drawPauseMenu();
     drawPauseBtn();
@@ -535,6 +530,7 @@ function update(dt = 1/60) {
     return requestAnimationFrame(() => update(1/60));
   }
 
+  // Pause countdown
   if (pauseCountdown.running) {
     drawBrooms();
     drawCatFace(catX, catY, selectedFace, 1);
@@ -573,6 +569,7 @@ function update(dt = 1/60) {
     return;
   }
 
+  // --- Physics & Gameplay ---
   if (gameStarted && !gameOver && !paused) {
     catVY += gravity;
     catY += catVY;
@@ -602,9 +599,11 @@ function update(dt = 1/60) {
     }
   }
 
+  // --- Draw world ---
   drawBrooms();
   drawCatFace(catX, catY, selectedFace, 1);
 
+  // --- UI (drawn last, always on top) ---
   if (gameStarted && !gameOver) {
     drawScore();
     drawPauseBtn();
@@ -632,6 +631,7 @@ function update(dt = 1/60) {
   requestAnimationFrame(() => update(1/60));
 }
 
+// --- Controls ---
 function triggerFlap() {
   if (!gameStarted && !gameOver && !paused && !pauseMenu.show && !pauseCountdown.running) {
     startGame();
@@ -719,9 +719,7 @@ function handleSelectorClick(mx, my) {
   return false;
 }
 
-// --- Mouse & Touch Controls ---
-canvas.addEventListener('mousedown', function(e) {
-  if (pauseMenu.show || pauseCountdown.running) return;
+canvas.addEventListener('mousedown', function (e) {
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
   const my = (e.clientY - rect.top) * (canvas.height / rect.height);
@@ -731,50 +729,43 @@ canvas.addEventListener('mousedown', function(e) {
     return;
   }
   if (pauseCountdown.running) return;
-
   if (tryPause(mx, my)) return;
-
   if (gameOver) {
-    handleRestartBtnClick(mx, my);
-    handleSelectorClick(mx, my);
-    return;
-  } else if (!gameStarted && !gameOver) {
     if (handleSelectorClick(mx, my)) return;
-    triggerFlap();
+    handleRestartBtnClick(mx, my);
+  } else if (!gameStarted && !gameOver) {
+    if (!handleSelectorClick(mx, my)) triggerFlap();
   } else if (gameStarted && !gameOver && !paused) {
     triggerFlap();
   }
 });
-
-canvas.addEventListener('touchstart', function(e) {
-  if (pauseMenu.show || pauseCountdown.running) return;
-  const rect = canvas.getBoundingClientRect();
-  const touch = e.touches[0];
-  const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
-  const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
-
+canvas.addEventListener('touchstart', function (e) {
   if (pauseMenu.show) {
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+    const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
     handlePauseMenuClick(mx, my);
     e.preventDefault();
     return;
   }
   if (pauseCountdown.running) { e.preventDefault(); return; }
   if (tryPauseTouch(e)) { e.preventDefault(); return; }
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const mx = (touch.clientX - rect.left) * (canvas.width / rect.width);
+  const my = (touch.clientY - rect.top) * (canvas.height / rect.height);
 
   if (gameOver) {
+    if (handleSelectorClick(mx, my)) { e.preventDefault(); return; }
     handleRestartBtnClick(mx, my);
-    if (handleSelectorClick(mx, my)) { e.preventDefault(); return; }
-    e.preventDefault();
-    return;
   } else if (!gameStarted && !gameOver) {
-    if (handleSelectorClick(mx, my)) { e.preventDefault(); return; }
-    triggerFlap();
+    if (!handleSelectorClick(mx, my)) triggerFlap();
   } else if (gameStarted && !gameOver && !paused) {
     triggerFlap();
   }
   e.preventDefault();
 });
-
 canvas.addEventListener('touchmove', function(e) {
   e.preventDefault();
 });
@@ -840,8 +831,8 @@ canvas.addEventListener('touchcancel', function(e) {
   selectorDragging = false;
 });
 
-// --- Keyboard Controls ---
-document.addEventListener('keydown', function(e) {
+// --- Keyboard controls ---
+document.addEventListener('keydown', function (e) {
   if (pauseMenu.show || pauseCountdown.running) return;
   if (!gameStarted && !gameOver && (e.code === 'Space' || e.code === 'Enter')) {
     e.preventDefault();
@@ -853,6 +844,7 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+// --- Init ---
 window.addEventListener('resize', () => {
   resizeCanvas();
   if (!gameStarted) catY = height/2;
