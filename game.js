@@ -1,4 +1,4 @@
-// Flappy Cat: Adds pause button (top right) and moves unlock popup to the left of it (no pause menu/countdown yet)
+// Flappy Cat: Pause button toggles between pause/play icon and unlock popup is left of pause button
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -140,7 +140,7 @@ function drawCatFace(x, y, faceIdx = selectedFace, opacity = 1) {
   ctx.restore();
 }
 
-// --- Draw Pause Button (top right) ---
+// --- Draw Pause Button (top right, toggles between pause/play icon) ---
 function drawPauseBtn() {
   const btnSize = 44 * scale;
   const margin = 16 * scale;
@@ -157,16 +157,33 @@ function drawPauseBtn() {
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
-  // Pause icon (||)
+
+  // Draw icon: pause (||) or play (►)
   ctx.strokeStyle = "#ba0e19";
+  ctx.fillStyle = "#ba0e19";
   ctx.lineWidth = 5 * scale;
   ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(x + btnSize*0.38, y + btnSize*0.28);
-  ctx.lineTo(x + btnSize*0.38, y + btnSize*0.72);
-  ctx.moveTo(x + btnSize*0.62, y + btnSize*0.28);
-  ctx.lineTo(x + btnSize*0.62, y + btnSize*0.72);
-  ctx.stroke();
+  if (!paused) {
+    // Pause icon (||)
+    ctx.beginPath();
+    ctx.moveTo(x + btnSize*0.38, y + btnSize*0.28);
+    ctx.lineTo(x + btnSize*0.38, y + btnSize*0.72);
+    ctx.moveTo(x + btnSize*0.62, y + btnSize*0.28);
+    ctx.lineTo(x + btnSize*0.62, y + btnSize*0.72);
+    ctx.stroke();
+  } else {
+    // Play icon (►)
+    ctx.beginPath();
+    const px = x + btnSize*0.40;
+    const py = y + btnSize*0.30;
+    const triangleW = btnSize*0.28;
+    const triangleH = btnSize*0.40;
+    ctx.moveTo(px, py);
+    ctx.lineTo(px, py + triangleH);
+    ctx.lineTo(px + triangleW, py + triangleH/2);
+    ctx.closePath();
+    ctx.fill();
+  }
   ctx.restore();
 }
 
