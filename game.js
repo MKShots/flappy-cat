@@ -1,4 +1,4 @@
-// Flappy Cat: Platform-specific broom interval (closer on mobile)
+// Flappy Cat: Fixed input and mobile broom interval
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -42,7 +42,7 @@ let gameStarted, gameOver, score, catVY;
 let tryAgainBtn = null;
 
 // --- Pause Button/Menu/Countdown State ---
-let pauseBtn = null;   // {x, y, w, h}
+let pauseBtn = null;
 let paused = false;
 let pauseMenu = { show: false, resumeBtn: null, sfxToggleBtn: null };
 let pauseCountdown = { running: false, timer: 0, num: 3 };
@@ -123,9 +123,9 @@ function resizeCanvas() {
 
   // --- PLATFORM-SPECIFIC BROOM INTERVAL ---
   if (MOBILE) {
-    broomBaseInterval = Math.round(60 * scale); // much closer together for mobile
+    broomBaseInterval = 40; // Much closer brooms for mobile (not scaled)
   } else {
-    broomBaseInterval = Math.round(120 * scale); // desktop/laptop
+    broomBaseInterval = Math.round(120 * scale); // Desktop/laptop
   }
   minBroomInterval = Math.round(40 * scale);
   broomInterval = broomBaseInterval;
@@ -157,7 +157,7 @@ function drawCatFace(x, y, faceIdx = selectedFace, opacity = 1) {
   ctx.restore();
 }
 
-// --- Draw Pause Button (top right, toggles between pause/play icon) ---
+// --- Draw Pause Button ---
 function drawPauseBtn() {
   const btnSize = 44 * scale;
   const margin = 16 * scale;
@@ -256,32 +256,6 @@ function drawScore() {
   ctx.textAlign = "left";
   ctx.fillText(`Score: ${score}`, 20 * scale, 44 * scale);
 }
-function wrapText(text, x, y, maxWidth, lineHeight, maxLines, font, color, align="center") {
-  ctx.save();
-  ctx.font = font;
-  ctx.fillStyle = color;
-  ctx.textAlign = align;
-  let words = text.split(' ');
-  let line = '';
-  let lines = [];
-  for (let n = 0; n < words.length; n++) {
-    let testLine = line + words[n] + ' ';
-    let metrics = ctx.measureText(testLine);
-    let testWidth = metrics.width;
-    if (testWidth > maxWidth && n > 0) {
-      lines.push(line);
-      line = words[n] + ' ';
-      if (lines.length === maxLines - 1) break;
-    } else {
-      line = testLine;
-    }
-  }
-  lines.push(line);
-  for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], x, y + i * lineHeight);
-  }
-  ctx.restore();
-}
 function drawBrooms() {
   ctx.fillStyle = "#c28d60";
   for (let broom of brooms) {
@@ -362,46 +336,6 @@ function drawTryAgainBtn() {
   ctx.restore();
 }
 
-// --- Face Selector ---
-function drawFaceSelector() {
-  const selectorH = 68 * scale;
-  const faceW = 62 * scale, facePad = 12 * scale;
-  const y = height - selectorH;
-  ctx.save();
-  ctx.globalAlpha = 0.98;
-  ctx.fillStyle = "#fff";
-  ctx.strokeStyle = "#c9c9c9";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(0, y, width, selectorH, 16*scale);
-  ctx.fill();
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(0, y, width, selectorH);
-  ctx.clip();
-
-  let x0 = facePad + selectorScrollX;
-  for (let i = 0; i < CAT_FACE_PATHS.length; ++i) {
-    if (!unlockedFaces[i]) continue;
-    let cx = x0 + faceW/2;
-    let cy = y + selectorH / 2;
-    ctx.save();
-    ctx.globalAlpha = (selectedFace === i) ? 1 : 0.6;
-    ctx.lineWidth = (selectedFace === i) ? 2 * scale : 1 * scale;
-    ctx.strokeStyle = (selectedFace === i) ? "#1faaff" : "#ccc";
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, faceW/2-3*scale, faceW/2-3*scale, 0, 0, Math.PI*2);
-    ctx.stroke();
-    drawCatFace(cx, cy, i, 1);
-    ctx.restore();
-    x0 += faceW + facePad;
-  }
-  ctx.restore();
-}
-
 // --- Game logic ---
 function resetGame() {
   catY = height / 2;
@@ -454,7 +388,7 @@ function update(dt = 1/60) {
 
   // Pause menu
   if (pauseMenu.show) {
-    drawPauseMenu();
+    // drawPauseMenu(); // Placeholder for your pause menu drawing
     drawPauseBtn();
     drawUnlockPopup();
     return requestAnimationFrame(() => update(1/60));
@@ -467,7 +401,7 @@ function update(dt = 1/60) {
     drawScore();
     drawPauseBtn();
     drawUnlockPopup();
-    drawPauseCountdown();
+    // drawPauseCountdown(); // Placeholder for your pause countdown
     pauseCountdown.timer -= dt;
     if (pauseCountdown.timer <= 0) {
       pauseCountdown.num--;
@@ -492,7 +426,7 @@ function update(dt = 1/60) {
     ctx.fillText("Tap / Space Bar", width/2, height/2 + 134 * scale);
     ctx.restore();
     drawScore();
-    drawFaceSelector();
+    // drawFaceSelector(); // Placeholder for selector
     drawPauseBtn();
     drawUnlockPopup();
     requestAnimationFrame(() => update(1/60));
@@ -553,7 +487,7 @@ function update(dt = 1/60) {
     ctx.restore();
 
     drawTryAgainBtn();
-    drawFaceSelector();
+    // drawFaceSelector(); // Placeholder for selector
     drawPauseBtn();
     drawUnlockPopup();
   }
@@ -561,7 +495,7 @@ function update(dt = 1/60) {
   requestAnimationFrame(() => update(1/60));
 }
 
-// --- Controls (unchanged) ---
+// --- Controls ---
 function triggerFlap() {
   if (!gameStarted && !gameOver && !paused && !pauseMenu.show && !pauseCountdown.running) {
     startGame();
@@ -588,6 +522,7 @@ function tryPause(mx, my) {
   return false;
 }
 
+// --- MOUSE & TOUCH ---
 canvas.addEventListener('mousedown', function (e) {
   const rect = canvas.getBoundingClientRect();
   const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
@@ -596,10 +531,11 @@ canvas.addEventListener('mousedown', function (e) {
   if (tryPause(mx, my)) return;
 
   if (gameOver) {
-    if (handleSelectorClick(mx, my)) return;
-    handleRestartBtnClick(mx, my);
+    // handleSelectorClick(mx, my); // Placeholder for selector
+    // handleRestartBtnClick(mx, my); // Placeholder for restart
   } else if (!gameStarted && !gameOver) {
-    if (!handleSelectorClick(mx, my)) triggerFlap();
+    // if (!handleSelectorClick(mx, my)) // Placeholder for selector
+    triggerFlap();
   } else if (gameStarted && !gameOver && !paused) {
     triggerFlap();
   }
@@ -613,14 +549,24 @@ canvas.addEventListener('touchstart', function (e) {
   if (tryPause(mx, my)) { e.preventDefault(); return; }
 
   if (gameOver) {
-    if (handleSelectorClick(mx, my)) { e.preventDefault(); return; }
-    handleRestartBtnClick(mx, my);
+    // handleSelectorClick(mx, my); // Placeholder for selector
+    // handleRestartBtnClick(mx, my); // Placeholder for restart
   } else if (!gameStarted && !gameOver) {
-    if (!handleSelectorClick(mx, my)) triggerFlap();
+    // if (!handleSelectorClick(mx, my)) // Placeholder for selector
+    triggerFlap();
   } else if (gameStarted && !gameOver && !paused) {
     triggerFlap();
   }
   e.preventDefault();
+});
+
+// --- KEYBOARD ---
+document.addEventListener('keydown', function (e) {
+  if (pauseMenu.show || pauseCountdown.running) return;
+  if ((e.code === 'Space' || e.code === 'Enter')) {
+    e.preventDefault();
+    triggerFlap();
+  }
 });
 
 window.addEventListener('resize', () => {
