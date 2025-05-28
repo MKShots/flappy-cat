@@ -3,6 +3,8 @@
 A relaxing, cartoon-style browser game where you play as a cat dodging brooms through a steampunk city!
 Unlock new cat faces as you reach checkpoints, and enjoy the endless, chill gameplay.
 
+[Play the game here](https://mkshots.github.io/flappy-cat/)
+
 ## How to Play
 
 -**Press the space bar** to make your cat jump.
