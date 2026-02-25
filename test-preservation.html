@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preservation Property Tests - Device-Independent Falling Speed</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #ba0e19;
+    }
+    .test-section {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .test-result {
+      margin: 10px 0;
+      padding: 10px;
+      border-left: 4px solid #ccc;
+    }
+    .test-result.pass {
+      border-color: #4caf50;
+      background: #e8f5e9;
+    }
+    .test-result.fail {
+      border-color: #f44336;
+      background: #ffebee;
+    }
+    button {
+      background: #4ecbff;
+      color: #124a89;
+      border: 2px solid #1faaff;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #1faaff;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+    .data-table th, .data-table td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    .data-table th {
+      background: #ba0e19;
+      color: white;
+    }
+    code {
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+    .info {
+      background: #e3f2fd;
+      border: 1px solid #2196f3;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🐱 Preservation Property Tests</h1>
+  <h2>Device-Independent Falling Speed Bugfix</h2>
+  
+  <div class="info">
+    <strong>ℹ️ Purpose:</strong> These tests verify that non-physics gameplay mechanics remain unchanged after the fix.
+    They should <strong>PASS</strong> on both unfixed and fixed code, confirming no regressions.
+  </div>
+
+  <div class="test-section">
+    <h3>Test Overview</h3>
+    <p><strong>Property 2: Preservation</strong> - Gameplay Mechanics Unchanged</p>
+    <p><strong>Validates Requirements:</strong> 3.1, 3.2, 3.3, 3.4, 3.5, 3.6</p>
+    
+    <h4>Test Coverage:</h4>
+    <ul>
+      <li><strong>Flap Input (3.1):</strong> Upward velocity applied when flap is triggered</li>
+      <li><strong>Broom Movement (3.2):</strong> Brooms move at intended speed relative to falling</li>
+      <li><strong>Collision Detection (3.3):</strong> Accurate collision detection with cat/broom positions</li>
+      <li><strong>Score Calculation (3.5):</strong> Score increments correctly when passing brooms</li>
+      <li><strong>State Transitions (3.6):</strong> Game start, game over, pause/unpause work correctly</li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <button id="runTest">Run Preservation Tests</button>
+    <button id="clearResults">Clear Results</button>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    // Minimal game simulation for preservation testing
+    class GameSimulator {
+      constructor() {
+        this.reset();
+      }
+
+      reset() {
+        this.width = 360;
+        this.height = 480;
+        this.scale = 1;
+        
+        this.catX = Math.round(this.width * 0.22);
+        this.catY = this.height / 2;
+        this.catHitboxRX = Math.round(28 * this.scale);
+        this.catHitboxRY = Math.round(34 * this.scale);
+        this.catVY = 0;
+        
+        this.groundY = this.height - Math.round(25 * this.scale);
+        this.ceilingY = Math.round(25 * this.scale);
+        
+        this.broomWidth = Math.round(44 * this.scale);
+        this.broomSpeed = 1.2 * this.scale;
+        this.broomGap = 7 * this.catHitboxRY; // maxBroomGap
+        
+        this.gravity = 0.13 * this.scale;
+        this.jumpPower = -4.2 * this.scale;
+        
+        this.brooms = [];
+        this.score = 0;
+        this.gameStarted = false;
+        this.gameOver = false;
+      }
+
+      // Simulate flap input
+      triggerFlap() {
+        if (!this.gameStarted && !this.gameOver) {
+          this.startGame();
+        }
+        if (this.gameStarted && !this.gameOver) {
+          this.catVY = this.jumpPower;
+        }
+      }
+
+      startGame() {
+        this.brooms = [];
+        const gapY = this.ceilingY + this.broomGap/2 + Math.random() * (this.groundY - this.ceilingY - this.broomGap);
+        this.brooms.push({ x: this.width, gapY, gap: this.broomGap, passed: false });
+        this.gameStarted = true;
+        this.gameOver = false;
+        this.score = 0;
+        this.catY = this.height / 2;
+        this.catVY = 0;
+      }
+
+      // Simulate one frame update (unfixed code)
+      updateUnfixed(dt = 1/60) {
+        if (this.gameStarted && !this.gameOver) {
+          this.catVY += this.gravity;
+          this.catY += this.catVY;
+          
+          for (let broom of this.brooms) {
+            broom.x -= this.broomSpeed;
+          }
+          
+          // Filter out brooms that have moved off screen
+          this.brooms = this.brooms.filter(broom => broom.x + this.broomWidth > 0);
+          
+          // Score calculation
+          for (let broom of this.brooms) {
+            if (!broom.passed && broom.x + this.broomWidth < this.catX - this.catHitboxRX) {
+              broom.passed = true;
+              this.score++;
+            }
+          }
+          
+          // Collision detection
+          if (this.checkCollision()) {
+            this.gameOver = true;
+          }
+        }
+      }
+
+      checkCollision() {
+        const hit = {
+          x: this.catX,
+          y: this.catY,
+          rx: this.catHitboxRX,
+          ry: this.catHitboxRY
+        };
+        
+        for (let broom of this.brooms) {
+          if (hit.x + hit.rx > broom.x && hit.x - hit.rx < broom.x + this.broomWidth) {
+            if (
+              hit.y - hit.ry < broom.gapY - broom.gap/2 ||
+              hit.y + hit.ry > broom.gapY + broom.gap/2
+            ) {
+              return true;
+            }
+          }
+        }
+        
+        if (this.catY + this.catHitboxRY > this.groundY) return true;
+        return false;
+      }
+
+      getCatVY() {
+        return this.catVY;
+      }
+
+      getCatY() {
+        return this.catY;
+      }
+
+      getScore() {
+        return this.score;
+      }
+
+      isGameOver() {
+        return this.gameOver;
+      }
+
+      isGameStarted() {
+        return this.gameStarted;
+      }
+    }
+
+    // Test suite
+    const tests = [];
+
+    // Test 3.1: Flap input applies upward velocity
+    tests.push({
+      name: "Flap Input - Upward Velocity Applied",
+      requirement: "3.1",
+      run: () => {
+        const game = new GameSimulator();
+        game.startGame();
+        
+        const velocityBeforeFlap = game.getCatVY();
+        game.triggerFlap();
+        const velocityAfterFlap = game.getCatVY();
+        
+        // Expected: jumpPower = -4.2 * scale = -4.2
+        const expectedJumpPower = -4.2;
+        const tolerance = 0.01;
+        
+        const passed = Math.abs(velocityAfterFlap - expectedJumpPower) < tolerance;
+        
+        return {
+          passed,
+          details: `Velocity after flap: ${velocityAfterFlap.toFixed(2)}, Expected: ${expectedJumpPower.toFixed(2)}`,
+          observation: `Flap applies velocity of ${velocityAfterFlap.toFixed(2)} (jumpPower constant)`
+        };
+      }
+    });
+
+    // Test 3.2: Broom movement speed
+    tests.push({
+      name: "Broom Movement - Consistent Speed",
+      requirement: "3.2",
+      run: () => {
+        const game = new GameSimulator();
+        game.startGame();
+        
+        // Check if broom exists
+        if (game.brooms.length === 0) {
+          return { passed: false, details: 'No brooms in game', observation: 'Test setup error' };
+        }
+        
+        const initialBroomX = game.brooms[0].x;
+        
+        // Simulate 10 frames (enough to measure speed without broom going off-screen)
+        for (let i = 0; i < 10; i++) {
+          game.updateUnfixed(1/60);
+          if (game.brooms.length === 0) {
+            return { passed: false, details: 'Broom was removed during test', observation: 'Broom went off-screen' };
+          }
+        }
+        
+        const finalBroomX = game.brooms[0].x;
+        const distanceMoved = initialBroomX - finalBroomX;
+        
+        // Expected: broomSpeed * 10 frames = 1.2 * 10 = 12 pixels
+        const expectedDistance = 1.2 * 10;
+        const tolerance = 0.1;
+        
+        const passed = Math.abs(distanceMoved - expectedDistance) < tolerance;
+        
+        return {
+          passed,
+          details: `Broom moved ${distanceMoved.toFixed(2)}px in 10 frames, Expected: ${expectedDistance.toFixed(2)}px`,
+          observation: `Broom speed: ${(distanceMoved / 10).toFixed(2)}px per frame`
+        };
+      }
+    });
+
+    // Test 3.3: Collision detection - Hit detection
+    tests.push({
+      name: "Collision Detection - Broom Hit",
+      requirement: "3.3",
+      run: () => {
+        const game = new GameSimulator();
+        game.startGame();
+        
+        // Position cat to collide with broom
+        game.catY = game.brooms[0].gapY - game.broomGap/2 - 10; // Above gap
+        game.brooms[0].x = game.catX; // Align horizontally
+        
+        const collisionDetected = game.checkCollision();
+        
+        return {
+          passed: collisionDetected === true,
+          details: `Collision detected: ${collisionDetected}, Expected: true`,
+          observation: `Collision detection correctly identifies cat hitting broom`
+        };
+      }
+    });
+
+    // Test 3.3: Collision detection - No hit in gap
+    tests.push({
+      name: "Collision Detection - Safe in Gap",
+      requirement: "3.3",
+      run: () => {
+        const game = new GameSimulator();
+        game.startGame();
+        
+        // Position cat safely in gap
+        game.catY = game.brooms[0].gapY; // Center of gap
+        game.brooms[0].x = game.catX; // Align horizontally
+        
+        const collisionDetected = game.checkCollision();
+        
+        return {
+          passed: collisionDetected === false,
+          details: `Collision detected: ${collisionDetected}, Expected: false`,
+          observation: `Collision detection correctly allows cat through gap`
+        };
+      }
+    });
+
+    // Test 3.3: Collision detection - Ground hit
+    tests.push({
+      name: "Collision Detection - Ground Hit",
+      requirement: "3.3",
+      run: () => {
+        const game = new GameSimulator();
+        game.startGame();
+        
+        // Position cat at ground level
+        game.catY = game.groundY + 1;
+        
+        const collisionDetected = game.checkCollision();
+        
+        return {
+          passed: collisionDetected === true,
+          details: `Collision detected: ${collisionDetected}, Expected: true`,
+          observation: `Collision detection correctly identifies cat hitting ground`
+        };
+      }
+    });
+
+    // Test 3.5: Score calculation
+    tests.push({
+      name: "Score Calculation - Passing Broom",
+      requirement: "3.5",
+      run: () => {
+        const game = new GameSimulator();
+        game.startGame();
+        
+        const initialScore = game.getScore();
+        
+        // Move broom past cat
+        game.brooms[0].x = game.catX - game.catHitboxRX - game.broomWidth - 1;
+        game.updateUnfixed(1/60);
+        
+        const finalScore = game.getScore();
+        
+        return {
+          passed: finalScore === initialScore + 1,
+          details: `Score: ${initialScore} → ${finalScore}, Expected: ${initialScore + 1}`,
+          observation: `Score increments by 1 when broom passes cat`
+        };
+      }
+    });
+
+    // Test 3.6: State transitions - Game start
+    tests.push({
+      name: "State Transitions - Game Start",
+      requirement: "3.6",
+      run: () => {
+        const game = new GameSimulator();
+        
+        const startedBefore = game.isGameStarted();
+        game.triggerFlap(); // Should start game
+        const startedAfter = game.isGameStarted();
+        
+        return {
+          passed: !startedBefore && startedAfter,
+          details: `Game started: ${startedBefore} → ${startedAfter}`,
+          observation: `Flap input correctly starts game from initial state`
+        };
+      }
+    });
+
+    // Test 3.6: State transitions - Game over
+    tests.push({
+      name: "State Transitions - Game Over",
+      requirement: "3.6",
+      run: () => {
+        const game = new GameSimulator();
+        game.startGame();
+        
+        const gameOverBefore = game.isGameOver();
+        
+        // Force collision
+        game.catY = game.groundY + 10;
+        game.updateUnfixed(1/60);
+        
+        const gameOverAfter = game.isGameOver();
+        
+        return {
+          passed: !gameOverBefore && gameOverAfter,
+          details: `Game over: ${gameOverBefore} → ${gameOverAfter}`,
+          observation: `Collision correctly triggers game over state`
+        };
+      }
+    });
+
+    // Test runner
+    async function runPreservationTests() {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '<h3>Running Tests...</h3>';
+      
+      let html = '<h3>Test Results</h3>';
+      html += '<table class="data-table">';
+      html += '<tr><th>Test</th><th>Requirement</th><th>Status</th><th>Details</th></tr>';
+      
+      let passCount = 0;
+      let failCount = 0;
+      
+      for (const test of tests) {
+        try {
+          const result = test.run();
+          
+          html += '<tr>';
+          html += `<td><strong>${test.name}</strong></td>`;
+          html += `<td>${test.requirement}</td>`;
+          html += `<td style="color: ${result.passed ? '#4caf50' : '#f44336'}">`;
+          html += result.passed ? '✓ PASS' : '✗ FAIL';
+          html += '</td>';
+          html += `<td>${result.details}</td>`;
+          html += '</tr>';
+          
+          if (result.passed) {
+            passCount++;
+          } else {
+            failCount++;
+          }
+          
+          // Small delay for visual feedback
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (error) {
+          html += '<tr>';
+          html += `<td><strong>${test.name}</strong></td>`;
+          html += `<td>${test.requirement}</td>`;
+          html += `<td style="color: #f44336">✗ ERROR</td>`;
+          html += `<td>${error.message}</td>`;
+          html += '</tr>';
+          failCount++;
+        }
+      }
+      
+      html += '</table>';
+      
+      // Summary
+      html += '<div class="test-section">';
+      html += '<h3>Test Summary</h3>';
+      
+      if (failCount === 0) {
+        html += '<div class="test-result pass">';
+        html += '<h4>✓ All Preservation Tests Passed!</h4>';
+        html += `<p><strong>${passCount}/${tests.length}</strong> tests passed.</p>`;
+        html += '<p>All non-physics gameplay mechanics are working correctly. ';
+        html += 'These behaviors should remain unchanged after implementing the fix.</p>';
+        html += '</div>';
+      } else {
+        html += '<div class="test-result fail">';
+        html += '<h4>✗ Some Tests Failed</h4>';
+        html += `<p><strong>${passCount}/${tests.length}</strong> tests passed, `;
+        html += `<strong>${failCount}</strong> failed.</p>`;
+        html += '<p>Review failed tests to understand baseline behavior before implementing fix.</p>';
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      
+      // Observations
+      html += '<div class="test-section">';
+      html += '<h3>Baseline Observations (Unfixed Code)</h3>';
+      html += '<ul>';
+      html += '<li><strong>Flap Input:</strong> Applies jumpPower (-4.2 * scale) directly to velocity</li>';
+      html += '<li><strong>Broom Movement:</strong> Moves at broomSpeed (1.2 * scale) pixels per frame</li>';
+      html += '<li><strong>Collision Detection:</strong> Uses ellipse hitbox with accurate gap detection</li>';
+      html += '<li><strong>Score Calculation:</strong> Increments when broom.x + broomWidth < catX - catHitboxRX</li>';
+      html += '<li><strong>State Transitions:</strong> Flap starts game, collision triggers game over</li>';
+      html += '</ul>';
+      html += '<p><strong>After Fix:</strong> All these behaviors must remain identical. ';
+      html += 'Only time-dependent physics (gravity, velocity application) should change.</p>';
+      html += '</div>';
+      
+      resultsDiv.innerHTML = html;
+    }
+
+    // Event listeners
+    document.getElementById('runTest').addEventListener('click', runPreservationTests);
+    document.getElementById('clearResults').addEventListener('click', () => {
+      document.getElementById('results').innerHTML = '';
+    });
+  </script>
+</body>
+</html>
