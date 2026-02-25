@@ -53,9 +53,6 @@ let selectorDragging = false;
 let selectorDragStartX = 0;
 let selectorScrollStart = 0;
 
-// --- Delta Time Tracking ---
-let lastTimestamp = null;
-
 // --- Persistent unlocked faces for this session
 function initUnlockedFaces() {
   if (!window._flappyCatUnlocked) {
@@ -114,14 +111,14 @@ function resizeCanvas() {
   broomMinGap = minBroomGap;
   broomGap = broomBaseGap;
 
-  broomBaseSpeed = 1.2 * scale * 60;  // Convert to pixels per second
+  broomBaseSpeed = 1.2 * scale;
   broomSpeed = broomBaseSpeed;
-  broomBaseInterval = (100 * scale) / 60;  // Convert to seconds
-  minBroomInterval = (100 * scale) / 60;   // Convert to seconds
+  broomBaseInterval = Math.round(100 * scale);
+  minBroomInterval = Math.round(100 * scale);
   broomInterval = broomBaseInterval;
 
-  gravity = 0.13 * scale * 60;      // Convert to units per second
-  jumpPower = -4.2 * scale * 60;    // Convert to units per second
+  gravity = 0.13 * scale;
+  jumpPower = -4.2 * scale;
 
   if (brooms) {
     for (let broom of brooms) {
@@ -492,20 +489,28 @@ function resetGame() {
   paused = false;
   pauseMenu.show = false;
   pauseCountdown.running = false;
-  lastTimestamp = null; // Reset timestamp tracking
 }
 
-function update(timestamp) {
-  // Calculate delta time
-  let dt;
-  if (lastTimestamp === null) {
-    dt = 1/60; // First frame: use default
-  } else {
-    dt = (timestamp - lastTimestamp) / 1000; // Convert ms to seconds
-    dt = Math.min(dt, 0.1); // Cap at 100ms (0.1 seconds)
-  }
-  lastTimestamp = timestamp;
+function updateBroomDifficulty() {
+  let level = score + 1;
+  let t = Math.min(level, 300) / 300;
+  broomGap = maxBroomGap - (maxBroomGap - minBroomGap) * t;
+}
 
+function startGame() {
+  brooms = [];
+  broomTimer = 0;
+  const gapY = ceilingY + broomGap/2 + Math.random() * (groundY - ceilingY - broomGap);
+  brooms.push({ x: width, gapY, gap: broomGap, passed: false });
+  gameStarted = true;
+  gameOver = false;
+  score = 0;
+  catY = height / 2;
+  catVY = 0;
+}
+
+// --- Main update loop ---
+function update(dt = 1/60) {
   ctx.clearRect(0, 0, width, height);
   drawGround();
 
@@ -522,7 +527,7 @@ function update(timestamp) {
     drawPauseMenu();
     drawPauseBtn();
     drawUnlockPopup();
-    return requestAnimationFrame(update);
+    return requestAnimationFrame(() => update(1/60));
   }
 
   // Pause countdown
@@ -541,10 +546,9 @@ function update(timestamp) {
       } else {
         pauseCountdown.running = false;
         paused = false;
-        lastTimestamp = null; // Reset to prevent large dt after unpause
       }
     }
-    return requestAnimationFrame(update);
+    return requestAnimationFrame(() => update(1/60));
   }
 
   if (!gameStarted && !gameOver) {
@@ -561,23 +565,23 @@ function update(timestamp) {
     drawFaceSelector();
     drawPauseBtn();
     drawUnlockPopup();
-    requestAnimationFrame(update);
+    requestAnimationFrame(() => update(1/60));
     return;
   }
 
   // --- Physics & Gameplay ---
   if (gameStarted && !gameOver && !paused) {
-    catVY += gravity * dt;
-    catY += catVY * dt;
+    catVY += gravity;
+    catY += catVY;
     updateBroomDifficulty();
-    broomTimer += dt;
+    broomTimer++;
     if (broomTimer >= broomInterval) {
-      broomTimer -= broomInterval;
+      broomTimer = 0;
       const gapY = ceilingY + broomGap/2 + Math.random() * (groundY - ceilingY - broomGap);
       brooms.push({ x: width, gapY, gap: broomGap, passed: false });
     }
     for (let broom of brooms) {
-      broom.x -= broomSpeed * dt;
+      broom.x -= broomSpeed;
     }
     brooms = brooms.filter(broom => broom.x + broomWidth > 0);
     for (let broom of brooms) {
@@ -625,21 +629,7 @@ function update(timestamp) {
     drawUnlockPopup();
   }
 
-  requestAnimationFrame(update);
-}
-
-
-function startGame() {
-  brooms = [];
-  broomTimer = 0;
-  const gapY = ceilingY + broomGap/2 + Math.random() * (groundY - ceilingY - broomGap);
-  brooms.push({ x: width, gapY, gap: broomGap, passed: false });
-  gameStarted = true;
-  gameOver = false;
-  score = 0;
-  catY = height / 2;
-  catVY = 0;
-  lastTimestamp = null; // Reset timestamp tracking
+  requestAnimationFrame(() => update(1/60));
 }
 
 // --- Controls ---
