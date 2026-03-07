@@ -9,7 +9,7 @@ Unlock new cat faces as you reach checkpoints, and enjoy the endless, chill game
 
 -**Press the space bar** to make your cat jump.
 -**Dodge the brooms** and stay in the air!
-- Unlock new cat faces at every checkpoint (every 25 points).
+- Unlock new cat faces at every checkpoint (every 10 points).
 - Select your favorite cat face as you progress.
 - The game gets harder as you score higher. See how far you can go!
 
